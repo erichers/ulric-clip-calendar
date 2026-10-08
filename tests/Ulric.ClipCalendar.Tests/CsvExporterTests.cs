@@ -70,5 +70,10 @@ public class CsvExporterTests
         Assert.Equal(
             "http://localhost:5080/api/clips/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/media?kind=preview",
             rows[1].ClipUrl);
+
+        var relative = CsvExporter.Rows(new[] { uploaded }, null);
+        Assert.Equal(
+            "api/clips/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/media?kind=preview",
+            relative[0].ClipUrl);
     }
 }

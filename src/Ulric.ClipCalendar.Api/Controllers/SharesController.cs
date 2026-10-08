@@ -9,13 +9,13 @@ namespace Ulric.ClipCalendar.Api.Controllers;
 
 [ApiController]
 [Route("api/shares")]
-public sealed class SharesController(AppDbContext db) : ControllerBase
+public sealed class SharesController(AppDbContext db, IConfiguration configuration) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ShareDto>>> List()
     {
         var links = await db.ShareLinks.Include(link => link.Brand).OrderByDescending(link => link.CreatedAt).ToListAsync();
-        return links.Select(ApiMapper.ToShare).ToList();
+        return links.Select(link => ApiMapper.ToShare(link, configuration["PublicBaseUrl"])).ToList();
     }
 
     [HttpPost]
@@ -87,13 +87,13 @@ public sealed class SharesController(AppDbContext db) : ControllerBase
         };
         db.ShareLinks.Add(link);
         await db.SaveChangesAsync();
-        return Created($"/s/{link.Token}", ApiMapper.ToShare(link));
+        return Created(PublicUrls.Combine(configuration["PublicBaseUrl"], $"s/{link.Token}"), ApiMapper.ToShare(link, configuration["PublicBaseUrl"]));
     }
 }
 
 [ApiController]
 [Route("api/public")]
-public sealed class PublicController(AppDbContext db, StorageLayout storage) : ControllerBase
+public sealed class PublicController(AppDbContext db, StorageLayout storage, IConfiguration configuration) : ControllerBase
 {
     [HttpGet("{token}")]
     public async Task<ActionResult<PublicScheduleDto>> Get(string token)
@@ -112,7 +112,7 @@ public sealed class PublicController(AppDbContext db, StorageLayout storage) : C
             link.Brand?.Color,
             link.RangeStart?.ToString("yyyy-MM-dd"),
             link.RangeEnd?.ToString("yyyy-MM-dd"),
-            visible.Select(clip => ApiMapper.ToClip(clip, token, false)).ToArray());
+            visible.Select(clip => ApiMapper.ToClip(clip, token, false, configuration["PublicBaseUrl"])).ToArray());
     }
 
     [HttpGet("{token}/media/{clipId:guid}")]

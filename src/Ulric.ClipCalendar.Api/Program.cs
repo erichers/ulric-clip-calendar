@@ -22,11 +22,7 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.MaxRequestBodySize = 80_000_000;
 });
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("Default") ?? "Data Source=data/ulric.db";
-    options.UseSqlite(connectionString);
-});
+builder.Services.AddAppDatabase(builder.Configuration);
 
 var ffmpeg = FfmpegLocator.Resolve(builder.Configuration["Ffmpeg:Path"], builder.Configuration["Ffmpeg:ProbePath"]);
 builder.Services.AddSingleton(ffmpeg);
@@ -47,21 +43,26 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+var pathBase = app.Configuration["PathBase"];
+if (!string.IsNullOrWhiteSpace(pathBase))
+{
+    app.UsePathBase(pathBase);
+}
+
 Directory.CreateDirectory(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"));
 Directory.CreateDirectory(app.Services.GetRequiredService<StorageLayout>().Root);
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    db.Database.Migrate();
     if (app.Configuration.GetValue("Seed:Enabled", true))
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Seed");
         await DbSeeder.SeedAsync(
             db,
-            scope.ServiceProvider.GetRequiredService<MediaProcessor>(),
             scope.ServiceProvider.GetRequiredService<StorageLayout>(),
-            ffmpeg,
+            app.Environment.ContentRootPath,
             logger);
     }
 

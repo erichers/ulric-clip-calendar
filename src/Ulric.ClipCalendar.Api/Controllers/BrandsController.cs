@@ -8,7 +8,7 @@ namespace Ulric.ClipCalendar.Api.Controllers;
 
 [ApiController]
 [Route("api/brands")]
-public sealed class BrandsController(AppDbContext db) : ControllerBase
+public sealed class BrandsController(AppDbContext db, IConfiguration configuration) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<BrandDto>>> List()
@@ -46,7 +46,7 @@ public sealed class BrandsController(AppDbContext db) : ControllerBase
 
         db.Brands.Add(brand);
         await db.SaveChangesAsync();
-        return Created($"/api/brands/{brand.Id}", ApiMapper.ToBrand(brand, 0));
+        return Created(PublicUrls.Combine(configuration["PublicBaseUrl"], $"api/brands/{brand.Id}"), ApiMapper.ToBrand(brand, 0));
     }
 
     [HttpPut("{id:guid}")]

@@ -71,13 +71,7 @@ public static class CsvExporter
             return clip.SourceLink;
         }
 
-        var path = $"/api/clips/{clip.Id}/media?kind=preview";
-        if (string.IsNullOrWhiteSpace(publicBaseUrl))
-        {
-            return path;
-        }
-
-        return publicBaseUrl.TrimEnd('/') + path;
+        return PublicUrls.Combine(publicBaseUrl, $"api/clips/{clip.Id}/media?kind=preview");
     }
 
     public static string PlatformLabel(IEnumerable<Platform> platforms) =>

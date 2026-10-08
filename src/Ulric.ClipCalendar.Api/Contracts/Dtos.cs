@@ -158,12 +158,14 @@ public static class ApiMapper
         brand.LocationLabel,
         clipCount);
 
-    public static ClipDto ToClip(Clip clip, string? publicToken, bool includeNotes)
+    public static ClipDto ToClip(Clip clip, string? publicToken, bool includeNotes, string? publicBaseUrl = null)
     {
         string? Media(string kind, bool exists) => exists
-            ? publicToken is null
-                ? $"/api/clips/{clip.Id}/media?kind={kind}"
-                : $"/api/public/{publicToken}/media/{clip.Id}?kind={kind}"
+            ? PublicUrls.Combine(
+                publicBaseUrl,
+                publicToken is null
+                    ? $"api/clips/{clip.Id}/media?kind={kind}"
+                    : $"api/public/{publicToken}/media/{clip.Id}?kind={kind}")
             : null;
 
         var previewExists = !string.IsNullOrWhiteSpace(clip.ProcessedPath) || !string.IsNullOrWhiteSpace(clip.OriginalPath);
@@ -203,10 +205,10 @@ public static class ApiMapper
                 : Array.Empty<HistoryDto>());
     }
 
-    public static ShareDto ToShare(ShareLink link) => new(
+    public static ShareDto ToShare(ShareLink link, string? publicBaseUrl = null) => new(
         link.Id,
         link.Token,
-        $"/s/{link.Token}",
+        PublicUrls.Combine(publicBaseUrl, $"s/{link.Token}"),
         link.BrandId,
         link.Brand?.Name,
         link.RangeStart?.ToString("yyyy-MM-dd"),

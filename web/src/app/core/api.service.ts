@@ -16,71 +16,71 @@ export class ApiService {
   private readonly http = inject(HttpClient);
 
   capabilities() {
-    return this.http.get<Capabilities>('/api/capabilities');
+    return this.http.get<Capabilities>('api/capabilities');
   }
 
   brands() {
-    return this.http.get<Brand[]>('/api/brands');
+    return this.http.get<Brand[]>('api/brands');
   }
 
   saveBrand(body: BrandWrite, id?: string | null) {
-    return id ? this.http.put<Brand>(`/api/brands/${id}`, body) : this.http.post<Brand>('/api/brands', body);
+    return id ? this.http.put<Brand>(`api/brands/${id}`, body) : this.http.post<Brand>('api/brands', body);
   }
 
   clips(params: { brandId?: string | null; from?: string; to?: string }) {
-    return this.http.get<Clip[]>('/api/clips', { params: this.query(params) });
+    return this.http.get<Clip[]>('api/clips', { params: this.query(params) });
   }
 
   clip(id: string) {
-    return this.http.get<Clip>(`/api/clips/${id}`);
+    return this.http.get<Clip>(`api/clips/${id}`);
   }
 
   createClip(body: ClipWrite) {
-    return this.http.post<Clip>('/api/clips', body);
+    return this.http.post<Clip>('api/clips', body);
   }
 
   updateClip(id: string, body: ClipWrite) {
-    return this.http.put<Clip>(`/api/clips/${id}`, body);
+    return this.http.put<Clip>(`api/clips/${id}`, body);
   }
 
   upload(id: string, file: File) {
     const data = new FormData();
     data.append('file', file, file.name);
-    return this.http.post<Clip>(`/api/clips/${id}/file`, data);
+    return this.http.post<Clip>(`api/clips/${id}/file`, data);
   }
 
   reschedule(id: string, postDate: string, postTime: string) {
-    return this.http.post<Clip>(`/api/clips/${id}/reschedule`, { postDate, postTime });
+    return this.http.post<Clip>(`api/clips/${id}/reschedule`, { postDate, postTime });
   }
 
   setStatus(id: string, status: string, actor: string, note: string) {
-    return this.http.post<Clip>(`/api/clips/${id}/status`, { status, actor, note });
+    return this.http.post<Clip>(`api/clips/${id}/status`, { status, actor, note });
   }
 
   comment(id: string, author: string, body: string) {
-    return this.http.post<Clip>(`/api/clips/${id}/comments`, { author, body });
+    return this.http.post<Clip>(`api/clips/${id}/comments`, { author, body });
   }
 
   trim(id: string, start: number, end: number) {
-    return this.http.post<Clip>(`/api/clips/${id}/trim`, { start, end });
+    return this.http.post<Clip>(`api/clips/${id}/trim`, { start, end });
   }
 
   review(includeApproved: boolean) {
-    return this.http.get<Clip[]>('/api/review', {
+    return this.http.get<Clip[]>('api/review', {
       params: { includeApproved: String(includeApproved) }
     });
   }
 
   stats(params: { brandId?: string | null; from?: string; to?: string }) {
-    return this.http.get<Stats>('/api/stats', { params: this.query(params) });
+    return this.http.get<Stats>('api/stats', { params: this.query(params) });
   }
 
   shares() {
-    return this.http.get<ShareLink[]>('/api/shares');
+    return this.http.get<ShareLink[]>('api/shares');
   }
 
   createShare(body: { brandId?: string | null; rangeStart?: string | null; rangeEnd?: string | null; label?: string }) {
-    return this.http.post<ShareLink>('/api/shares', {
+    return this.http.post<ShareLink>('api/shares', {
       brandId: body.brandId || null,
       rangeStart: body.rangeStart || null,
       rangeEnd: body.rangeEnd || null,
@@ -89,7 +89,7 @@ export class ApiService {
   }
 
   publicSchedule(token: string) {
-    return this.http.get<PublicSchedule>(`/api/public/${token}`);
+    return this.http.get<PublicSchedule>(`api/public/${token}`);
   }
 
   private query(params: { brandId?: string | null; from?: string; to?: string }): HttpParams {

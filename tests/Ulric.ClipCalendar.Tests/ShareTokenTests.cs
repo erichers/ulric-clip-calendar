@@ -71,6 +71,7 @@ public class ShareTokenTests
             label = "October fern"
         });
         var created = await ApiClient.Read<ShareDto>(share);
+        Assert.StartsWith("s/", created.Url, StringComparison.Ordinal);
 
         var ok = await client.GetAsync($"/api/public/{created.Token}");
         var body = await ApiClient.Read<PublicScheduleDto>(ok);
@@ -193,6 +194,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
     {
+        builder.UseSetting("Database:Provider", "Sqlite");
         builder.UseSetting("ConnectionStrings:Default", $"Data Source={databasePath}");
         builder.UseSetting("Storage:Root", storagePath);
         builder.UseSetting("Seed:Enabled", "false");
@@ -201,6 +203,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
+                ["Database:Provider"] = "Sqlite",
                 ["ConnectionStrings:Default"] = $"Data Source={databasePath}",
                 ["Storage:Root"] = storagePath,
                 ["Seed:Enabled"] = "false"

@@ -9,7 +9,7 @@ namespace Ulric.ClipCalendar.Api.Controllers;
 
 [ApiController]
 [Route("api/clips")]
-public sealed class ClipsController(AppDbContext db, StorageLayout storage, MediaQueue queue) : ControllerBase
+public sealed class ClipsController(AppDbContext db, StorageLayout storage, MediaQueue queue, IConfiguration configuration) : ControllerBase
 {
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -29,14 +29,14 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
             return BadRequest(new { title = filtered.Error });
         }
 
-        return filtered.Clips!.Select(clip => ApiMapper.ToClip(clip, null, false)).ToList();
+        return filtered.Clips!.Select(clip => ApiMapper.ToClip(clip, null, false, configuration["PublicBaseUrl"])).ToList();
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ClipDto>> Get(Guid id)
     {
         var clip = await Load(id);
-        return clip is null ? NotFound() : ApiMapper.ToClip(clip, null, true);
+        return clip is null ? NotFound() : ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]);
     }
 
     [HttpPost]
@@ -85,7 +85,7 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
 
         db.Clips.Add(clip);
         await db.SaveChangesAsync();
-        return Created($"/api/clips/{clip.Id}", ApiMapper.ToClip(clip, null, true));
+        return Created(PublicUrls.Combine(configuration["PublicBaseUrl"], $"api/clips/{clip.Id}"), ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]));
     }
 
     [HttpPut("{id:guid}")]
@@ -154,7 +154,7 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
         }
 
         await db.SaveChangesAsync();
-        return ApiMapper.ToClip(clip, null, true);
+        return ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]);
     }
 
     [HttpPost("{id:guid}/reschedule")]
@@ -192,7 +192,7 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
         }
 
         await db.SaveChangesAsync();
-        return ApiMapper.ToClip(clip, null, true);
+        return ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]);
     }
 
     [HttpPost("{id:guid}/status")]
@@ -218,7 +218,7 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
             return BadRequest(new { title = ex.Message });
         }
 
-        return ApiMapper.ToClip(clip, null, true);
+        return ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]);
     }
 
     [HttpPost("{id:guid}/comments")]
@@ -253,7 +253,7 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
         clip.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         clip = (await Load(id))!;
-        return ApiMapper.ToClip(clip, null, true);
+        return ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]);
     }
 
     [HttpPost("{id:guid}/file")]
@@ -308,7 +308,7 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
         clip.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         queue.Enqueue(clip.Id);
-        return ApiMapper.ToClip(clip, null, true);
+        return ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]);
     }
 
     [HttpPost("{id:guid}/trim")]
@@ -342,7 +342,7 @@ public sealed class ClipsController(AppDbContext db, StorageLayout storage, Medi
         clip.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         queue.Enqueue(clip.Id);
-        return ApiMapper.ToClip(clip, null, true);
+        return ApiMapper.ToClip(clip, null, true, configuration["PublicBaseUrl"]);
     }
 
     [HttpGet("{id:guid}/media")]

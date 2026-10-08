@@ -8,9 +8,8 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(
         AppDbContext db,
-        MediaProcessor processor,
         StorageLayout storage,
-        FfmpegStatus ffmpeg,
+        string contentRoot,
         ILogger logger,
         CancellationToken ct = default)
     {
@@ -57,40 +56,51 @@ public static class DbSeeder
 
         db.Brands.AddRange(fern, night);
 
-        var clips = new List<Clip>
+        var seedMedia = LocateSeedMedia(contentRoot);
+        if (seedMedia is null)
         {
-            Clip(fern, today, -5, new TimeOnly(11, 0), "The flush after rain", "Rain on the tin roof, then the first flush. We waited.", "#fernandfield #forage", "InstagramReels,TikTok", "Spore Notes", 1, false, ApprovalStatus.Approved, null, "testsrc2", 0.2, 1.6),
-            Clip(fern, today, -1, new TimeOnly(11, 0), "Low and slow", "Low heat, open window, slices of lion's mane on the rack.", "#fernandfield #lionsmane", "InstagramReels,YouTubeShorts", "Spore Notes", 2, false, ApprovalStatus.NeedsReview, null, "smptebars", null, null),
-            Clip(fern, today, 1, new TimeOnly(11, 0), "A lion's mane morning", "A morning cup. Lion's mane, hot water, nothing clever.", "#fernandfield #morning", "TikTok,InstagramReels", "Spore Notes", 3, false, ApprovalStatus.Draft, null, "rgbtestsrc", null, null),
-            Clip(fern, today, 3, new TimeOnly(18, 30), "Broth for late email", "Broth for the hour when email should have ended.", "#slowbroth #fernandfield", "InstagramReels,Facebook", "Weeknight Broth", 1, true, ApprovalStatus.Approved, null, "pal75bars", null, null),
-            Clip(fern, today, 6, new TimeOnly(18, 30), "Salt, thyme, patience", "Salt, thyme, and a long simmer. The sleep line stays out until we can source it.", "#slowbroth", "YouTubeShorts,TikTok", "Weeknight Broth", 2, false, ApprovalStatus.Hold, null, "testsrc", null, null),
-            Clip(fern, today, 8, new TimeOnly(11, 0), "What we leave behind", "What we leave in the woods matters as much as what we take.", "#forage #fernandfield", "InstagramReels,TikTok,YouTubeShorts", "Forage Walk", 1, false, ApprovalStatus.NeedsReview, null, "smptehdbars", null, null),
-            Clip(fern, today, 10, new TimeOnly(16, 0), "Tin on the windowsill", "A tin on the windowsill, and the light that hits it at four.", "#fernandfield", "InstagramReels,Facebook", "", null, true, ApprovalStatus.Approved, "https://videos.example.com/fern/windowsill", null, null, null),
-            Clip(fern, today, 13, new TimeOnly(11, 0), "The rinse and the walk", "Part four is the rinse and the walk home.", "#fernandfield #sporenotes", "TikTok", "Spore Notes", 4, false, ApprovalStatus.Draft, "https://videos.example.com/fern/rinse", null, null, null),
-            Clip(night, today, -4, new TimeOnly(6, 30), "Lights on", "5:40. Lights on, grinder on, street still blue.", "#nightshiftcoffee #opening", "InstagramReels,TikTok", "Open the Window", 1, false, ApprovalStatus.Approved, null, "testsrc2", null, null),
-            Clip(night, today, -2, new TimeOnly(6, 30), "The first tray", "The first tray. We taste it before we sell it.", "#nightshiftcoffee", "YouTubeShorts,InstagramReels", "Open the Window", 2, false, ApprovalStatus.NeedsReview, null, "smptebars", null, null),
-            Clip(night, today, 0, new TimeOnly(6, 30), "Oat milk, honestly", "Oat milk, honestly: we steam it, we do not pretend it is dairy.", "#nightshiftcoffee #oat", "TikTok,InstagramReels", "Open the Window", 3, false, ApprovalStatus.Draft, null, "rgbtestsrc", null, null),
-            Clip(night, today, 2, new TimeOnly(21, 30), "One more, then we close", "One more espresso, then the chairs go up.", "#afterhours #nightshiftcoffee", "InstagramReels,Facebook", "Last Call Espresso", 1, true, ApprovalStatus.Approved, null, "pal75bars", null, null),
-            Clip(night, today, 4, new TimeOnly(21, 45), "Cups in the rack", "Cups in the rack, playlist down, door locked.", "#afterhours", "TikTok,YouTubeShorts", "Last Call Espresso", 2, false, ApprovalStatus.Hold, null, "testsrc", null, null),
-            Clip(night, today, 7, new TimeOnly(15, 0), "Playlist for the pour", "A pour-over playlist for the slow hour.", "#coffeewindow #nightshiftcoffee", "YouTubeShorts,TikTok", "Shift Notes", 1, false, ApprovalStatus.NeedsReview, null, "smptehdbars", null, null),
-            Clip(night, today, 9, new TimeOnly(9, 0), "Saturday regulars", "Saturday regulars, same corner, same order.", "#nightshiftcoffee", "InstagramReels,Facebook", "", null, true, ApprovalStatus.Approved, "https://videos.example.com/nightshift/regulars", null, null, null),
-            Clip(night, today, 12, new TimeOnly(6, 30), "Same bell, new beans", "The window opens again. Same bell, new beans.", "#nightshiftcoffee #opening", "TikTok,InstagramReels", "Open the Window", 4, false, ApprovalStatus.Draft, "https://videos.example.com/nightshift/bell", null, null, null)
-        };
+            logger.LogWarning("Seed media folder was not found. Clips will be saved without files.");
+        }
 
+        var clips = new List<Clip>();
+        clips.AddRange(Schedule(fern, FernPieces, today, now));
+        clips.AddRange(Schedule(night, NightPieces, today, now));
         db.Clips.AddRange(clips);
-        AddThread(clips, "Low and slow", now,
+
+        if (!clips.Any(clip => clip.Status == ApprovalStatus.Hold))
+        {
+            var holdTarget = clips.First(clip => clip.PostDate > today);
+            holdTarget.Status = ApprovalStatus.Hold;
+        }
+
+        var fernReview = clips.First(clip => clip.BrandId == fern.Id && clip.Status == ApprovalStatus.NeedsReview);
+        var nightReview = clips.First(clip => clip.BrandId == night.Id && clip.Status == ApprovalStatus.NeedsReview);
+        var held = clips.First(clip => clip.Status == ApprovalStatus.Hold);
+        var approved = clips.First(clip => clip.Status == ApprovalStatus.Approved);
+
+        AddThread(fernReview, now,
             new[]
             {
-                ("Jules Okonkwo", "The drying shot is clear. Can the last line stay sensory, with no health claim?", -2),
-                ("Avery Chen", "Rewrote it. Ready for another look.", -1)
+                ("Jules Okonkwo", "The shot is clear. Can the last line stay sensory, with no health claim?", -6),
+                ("Avery Chen", "Rewrote it. Ready for another look.", -2)
             },
-            new[] { (ApprovalStatus.Draft, ApprovalStatus.NeedsReview, "Avery Chen", "Ready for a look.", -3) });
-        AddThread(clips, "Salt, thyme, patience", now,
-            new[] { ("Jules Okonkwo", "Holding this one. The sleep line needs a source or a cut.", -1) },
+            new[] { (ApprovalStatus.Draft, ApprovalStatus.NeedsReview, "Avery Chen", "Ready for a look.", -2) });
+        AddThread(nightReview, now,
+            new[] { ("Jules Okonkwo", "Love the window light. Trim the last second if the pour runs long.", -3) },
+            new[] { (ApprovalStatus.Draft, ApprovalStatus.NeedsReview, "Avery Chen", "In the queue for today.", -3) });
+        AddThread(held, now,
+            new[] { ("Jules Okonkwo", "Holding this one. The sleep line needs a source or a cut.", -8) },
             new[]
             {
-                (ApprovalStatus.Draft, ApprovalStatus.NeedsReview, "Avery Chen", "Cut is in.", -4),
-                (ApprovalStatus.NeedsReview, ApprovalStatus.Hold, "Jules Okonkwo", "Hold the sleep line until we have a source.", -1)
+                (ApprovalStatus.Draft, ApprovalStatus.NeedsReview, "Avery Chen", "Cut is in.", -20),
+                (ApprovalStatus.NeedsReview, ApprovalStatus.Hold, "Jules Okonkwo", "Hold until we have a source for that line.", -8)
+            });
+        AddThread(approved, now,
+            Array.Empty<(string, string, int)>(),
+            new[]
+            {
+                (ApprovalStatus.Draft, ApprovalStatus.NeedsReview, "Avery Chen", "Posted to the queue.", -72),
+                (ApprovalStatus.NeedsReview, ApprovalStatus.Approved, "Jules Okonkwo", "Approved for the calendar.", -48)
             });
 
         var monthStart = new DateOnly(today.Year, today.Month, 1);
@@ -114,49 +124,171 @@ public static class DbSeeder
                 CreatedAt = now
             });
 
+        await CopyMediaAsync(clips, seedMedia, storage, logger, ct);
         await db.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded {Count} clips across three months.", clips.Count);
+    }
 
-        var fileClips = clips.Where(clip => clip.OriginalPath is not null).ToList();
-        if (!ffmpeg.IsAvailable)
+    public static string? LocateSeedMedia(string contentRoot)
+    {
+        var starts = new[] { contentRoot, AppContext.BaseDirectory, Directory.GetCurrentDirectory() };
+        foreach (var start in starts)
         {
-            foreach (var clip in fileClips)
+            if (string.IsNullOrWhiteSpace(start))
             {
-                clip.MediaState = MediaJobState.Unavailable;
-                clip.MediaMessage = ffmpeg.Message;
+                continue;
             }
 
-            await db.SaveChangesAsync(ct);
-            logger.LogWarning("Seeded demo clips without video files because ffmpeg is missing.");
-            return;
+            var dir = new DirectoryInfo(start);
+            for (var depth = 0; depth < 6 && dir is not null; depth++, dir = dir.Parent)
+            {
+                var candidate = Path.Combine(dir.FullName, "seed-media");
+                if (File.Exists(Path.Combine(candidate, "night-latte.mp4")))
+                {
+                    return candidate;
+                }
+            }
         }
 
-        await Parallel.ForEachAsync(fileClips, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct }, async (clip, token) =>
+        return null;
+    }
+
+    private static List<Clip> Schedule(Brand brand, IReadOnlyList<Piece> pieces, DateOnly today, DateTime now)
+    {
+        var days = brand.CadenceDays.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(int.Parse)
+            .ToHashSet();
+        var start = new DateOnly(today.Year, today.Month, 1).AddMonths(-1);
+        var end = new DateOnly(today.Year, today.Month, 1).AddMonths(2).AddDays(-1);
+        var parts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var clips = new List<Clip>();
+        var index = 0;
+        for (var date = start; date <= end; date = date.AddDays(1))
         {
-            var full = storage.Resolve(clip.OriginalPath);
-            if (full is null)
+            if (!days.Contains((int)date.DayOfWeek))
             {
-                return;
+                continue;
             }
 
-            var pattern = clip.VideoCodec ?? "testsrc2";
-            var lavfi = $"{pattern}=size=360x640:rate=12:duration=2";
-            try
+            var piece = pieces[index % pieces.Count];
+            var cycle = index / pieces.Count;
+            var title = cycle == 0 ? piece.Title : $"{piece.Title}, {date:MMM d}";
+            parts.TryGetValue(piece.Series, out var part);
+            part += 1;
+            parts[piece.Series] = part;
+            var time = piece.Evening ? new TimeOnly(18, 30) : brand.DefaultPostTime;
+            if (piece.Evening && brand.Name.StartsWith("Night", StringComparison.Ordinal))
             {
-                await FfmpegRunner.WriteDemoAsync(ffmpeg.FfmpegPath, full, lavfi, token);
+                time = new TimeOnly(21, 30);
             }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Demo video for {Title} was not generated.", clip.Title);
-            }
-        });
 
-        foreach (var clip in fileClips)
-        {
-            clip.VideoCodec = null;
-            await processor.ProcessAsync(clip.Id, ct);
+            clips.Add(new Clip
+            {
+                Id = Guid.NewGuid(),
+                BrandId = brand.Id,
+                Brand = brand,
+                Title = title,
+                Caption = piece.Caption,
+                Hashtags = piece.Tags,
+                PlatformsCsv = piece.Platforms,
+                Series = piece.Series,
+                SeriesPart = part,
+                PostDate = date,
+                PostTime = time,
+                StoriesOk = piece.Stories,
+                Status = StatusFor(date, today, index),
+                SourceKind = ClipSourceKind.Upload,
+                OriginalFileName = piece.File + ".mp4",
+                MediaState = MediaJobState.Pending,
+                CreatedAt = now,
+                UpdatedAt = now,
+                VideoCodec = "h264"
+            });
+            var clip = clips[^1];
+            clip.Width = 720;
+            clip.Height = 1280;
+            clip.DurationSeconds = piece.File.Contains("still", StringComparison.Ordinal) ? 3 : 4;
+            index++;
         }
 
-        logger.LogInformation("Seeded {Count} demo clips.", clips.Count);
+        return clips;
+    }
+
+    private static ApprovalStatus StatusFor(DateOnly date, DateOnly today, int index)
+    {
+        var delta = date.DayNumber - today.DayNumber;
+        if (delta < 0)
+        {
+            return ApprovalStatus.Approved;
+        }
+
+        if (delta == 0)
+        {
+            return ApprovalStatus.NeedsReview;
+        }
+
+        if (delta == 3)
+        {
+            return ApprovalStatus.Hold;
+        }
+
+        if (delta <= 8)
+        {
+            return ApprovalStatus.NeedsReview;
+        }
+
+        return index % 11 == 0 ? ApprovalStatus.NeedsReview : ApprovalStatus.Draft;
+    }
+
+    private static async Task CopyMediaAsync(
+        List<Clip> clips,
+        string? seedMedia,
+        StorageLayout storage,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        foreach (var clip in clips)
+        {
+            var file = Path.GetFileNameWithoutExtension(clip.OriginalFileName);
+            if (seedMedia is null || string.IsNullOrWhiteSpace(file))
+            {
+                clip.MediaState = MediaJobState.Failed;
+                clip.MediaMessage = "Seed media file was not found.";
+                continue;
+            }
+
+            var video = Path.Combine(seedMedia, file + ".mp4");
+            var poster = Path.Combine(seedMedia, file + ".jpg");
+            if (!File.Exists(video) || !File.Exists(poster))
+            {
+                clip.MediaState = MediaJobState.Failed;
+                clip.MediaMessage = "Seed media file was not found.";
+                logger.LogWarning("Missing seed file for {File}", file);
+                continue;
+            }
+
+            var folder = storage.Resolve($"media/{clip.Id}")
+                ?? throw new InvalidOperationException("Storage root is not configured.");
+            Directory.CreateDirectory(folder);
+            var original = Path.Combine(folder, "original.mp4");
+            var preview = Path.Combine(folder, "preview.mp4");
+            var thumb = Path.Combine(folder, "thumb.jpg");
+            await using (var source = File.OpenRead(video))
+            await using (var first = File.Create(original))
+            await using (var second = File.Create(preview))
+            {
+                await source.CopyToAsync(first, ct);
+                source.Position = 0;
+                await source.CopyToAsync(second, ct);
+            }
+
+            File.Copy(poster, thumb, overwrite: true);
+            clip.OriginalPath = storage.Relative(original);
+            clip.ProcessedPath = storage.Relative(preview);
+            clip.ThumbnailPath = storage.Relative(thumb);
+            clip.MediaState = MediaJobState.Succeeded;
+            clip.MediaMessage = "Preview is ready.";
+        }
     }
 
     private static Brand Brand(
@@ -195,63 +327,12 @@ public static class DbSeeder
         CreatedAt = now
     };
 
-    private static Clip Clip(
-        Brand brand,
-        DateOnly today,
-        int offset,
-        TimeOnly time,
-        string title,
-        string caption,
-        string hashtags,
-        string platforms,
-        string series,
-        int? part,
-        bool stories,
-        ApprovalStatus status,
-        string? link,
-        string? pattern,
-        double? trimStart,
-        double? trimEnd)
-    {
-        var id = Guid.NewGuid();
-        var hasFile = pattern is not null;
-        return new Clip
-        {
-            Id = id,
-            BrandId = brand.Id,
-            Brand = brand,
-            Title = title,
-            Caption = caption,
-            Hashtags = hashtags,
-            PlatformsCsv = platforms,
-            Series = series,
-            SeriesPart = part,
-            PostDate = today.AddDays(offset),
-            PostTime = time,
-            StoriesOk = stories,
-            Status = status,
-            SourceKind = hasFile ? ClipSourceKind.Upload : ClipSourceKind.Link,
-            SourceLink = link,
-            OriginalFileName = hasFile ? "demo.mp4" : null,
-            OriginalPath = hasFile ? $"media/{id}/original.mp4" : null,
-            TrimStartSeconds = trimStart,
-            TrimEndSeconds = trimEnd,
-            MediaState = hasFile ? MediaJobState.Pending : MediaJobState.Unavailable,
-            MediaMessage = hasFile ? null : "Linked clips stay on their original URL. Upload a file if you want a thumbnail or a trim.",
-            VideoCodec = pattern,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-    }
-
     private static void AddThread(
-        List<Clip> clips,
-        string title,
+        Clip clip,
         DateTime now,
         (string Author, string Body, int HourOffset)[] comments,
         (ApprovalStatus From, ApprovalStatus To, string Actor, string Note, int HourOffset)[] history)
     {
-        var clip = clips.First(item => item.Title == title);
         foreach (var comment in comments)
         {
             clip.Comments.Add(new ClipComment
@@ -278,4 +359,50 @@ public static class DbSeeder
             });
         }
     }
+
+    private sealed record Piece(
+        string File,
+        string Title,
+        string Caption,
+        string Tags,
+        string Series,
+        string Platforms,
+        bool Stories,
+        bool Evening);
+
+    private static readonly Piece[] FernPieces =
+    [
+        new("fern-mushroom-sunset", "The flush after rain", "Rain on the tin roof, then the first flush. We waited.", "#fernandfield #forage #sporenotes", "Spore Notes", "InstagramReels,TikTok", false, false),
+        new("fern-forest-floor", "What we leave behind", "What we leave in the woods matters as much as what we take.", "#forage #fernandfield", "Forage Walk", "InstagramReels,YouTubeShorts", false, false),
+        new("fern-path", "The path holds the rain", "We walk the edge of the path and leave the middle alone.", "#fernandfield #woods", "Forage Walk", "TikTok,InstagramReels", false, false),
+        new("fern-canopy", "Light in pieces", "Light comes through the canopy in pieces. We work in the pieces.", "#fernandfield #woods", "Spore Notes", "YouTubeShorts,TikTok", false, false),
+        new("fern-tea", "Tea for the simmer", "A glass of tea while the pot decides.", "#slowbroth #fernandfield", "Weeknight Broth", "InstagramReels,Facebook", true, true),
+        new("fern-vegetables", "The board", "A sharp knife, a wooden board, and no rush.", "#fernandfield #slowbroth", "Weeknight Broth", "TikTok,YouTubeShorts", false, true),
+        new("fern-fire", "Fire for the long pot", "The outdoor fire is for the long pot, not for show.", "#slowbroth #fernandfield", "Weeknight Broth", "InstagramReels,Facebook", true, true),
+        new("fern-fungus", "Notes, not a basket", "Fungus on the log stays where it is. We take notes.", "#forage #fernandfield", "Forage Walk", "TikTok,InstagramReels", false, false),
+        new("fern-still-mushrooms", "A basket half empty", "Half empty on purpose. The woods keep the rest.", "#fernandfield #forage", "Spore Notes", "InstagramReels,TikTok", true, false),
+        new("fern-still-forest", "After the rain", "The trees are still dripping. We wait at the edge.", "#woods #fernandfield", "Forage Walk", "YouTubeShorts,InstagramReels", true, false),
+        new("fern-still-fungi", "On the bark", "A close look, then we put the lens away.", "#forage #sporenotes", "Spore Notes", "TikTok", true, false),
+        new("fern-still-woods", "The long way home", "The walk home is part of the recipe.", "#fernandfield #woods", "Forage Walk", "InstagramReels,Facebook", true, false),
+        new("fern-still-moss", "Moss underfoot", "Stay on the moss, not on the flush.", "#forage #fernandfield", "Forage Walk", "TikTok,YouTubeShorts", true, false),
+        new("fern-still-broth", "Quiet surface", "An hour in. The surface goes quiet. That is the sign.", "#slowbroth #fernandfield", "Weeknight Broth", "InstagramReels,Facebook", true, true),
+        new("fern-still-herbs", "Thyme by the door", "Thyme from the pot by the door. Salt. Then we wait.", "#slowbroth #fernandfield", "Weeknight Broth", "TikTok,InstagramReels", true, true)
+    ];
+
+    private static readonly Piece[] NightPieces =
+    [
+        new("night-latte", "The heart is optional", "The heart in the cup is optional. The shot is not.", "#nightshiftcoffee #latte", "Open the Window", "InstagramReels,TikTok", false, false),
+        new("night-steam", "The mug fogs the glass", "5:40. Lights on, grinder on, street still blue.", "#nightshiftcoffee #opening", "Open the Window", "YouTubeShorts,InstagramReels", false, false),
+        new("night-beans", "New bag, same grinder", "We taste the first tray before we sell it.", "#nightshiftcoffee #beans", "Open the Window", "TikTok,YouTubeShorts", false, false),
+        new("night-barista", "Milk, ice, a short line", "Oat milk, honestly: we steam it, we do not pretend it is dairy.", "#nightshiftcoffee #oat", "Shift Notes", "InstagramReels,TikTok", false, false),
+        new("night-cafe", "Before the street wakes", "Someone is already at the window. Same corner, same order.", "#coffeewindow #nightshiftcoffee", "Shift Notes", "InstagramReels,Facebook", true, false),
+        new("night-cappuccino", "Bitter underneath", "Sparkle on top. Bitter underneath. That is the deal.", "#nightshiftcoffee #latte", "Open the Window", "TikTok,InstagramReels", false, false),
+        new("night-pour", "A steady pour", "A steady pour, then we stop. The playlist stays low.", "#coffeewindow #pour", "Shift Notes", "YouTubeShorts,TikTok", false, false),
+        new("night-still-latte", "Saturday regulars", "Saturday regulars, same cup, no speech required.", "#nightshiftcoffee", "Shift Notes", "InstagramReels,Facebook", true, false),
+        new("night-still-espresso", "One more, then we close", "One more espresso, then the chairs go up.", "#afterhours #nightshiftcoffee", "Last Call Espresso", "InstagramReels,TikTok", true, true),
+        new("night-still-beans", "The bag we just opened", "New beans, old ritual. We write the date on the bag.", "#nightshiftcoffee #beans", "Open the Window", "YouTubeShorts,InstagramReels", true, false),
+        new("night-still-cafe", "Cups in the rack", "Cups in the rack, playlist down, door locked.", "#afterhours #nightshiftcoffee", "Last Call Espresso", "TikTok,Facebook", true, true),
+        new("night-still-cup", "The cup by the printer", "The cup we reach for when the ticket printer starts.", "#nightshiftcoffee #opening", "Open the Window", "InstagramReels,TikTok", true, false),
+        new("night-still-chemex", "Three quiet minutes", "Grounds, a filter, and three quiet minutes.", "#pour #coffeewindow", "Shift Notes", "YouTubeShorts,TikTok", true, false)
+    ];
 }

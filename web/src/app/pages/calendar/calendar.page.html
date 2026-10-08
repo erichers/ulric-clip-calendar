@@ -54,6 +54,7 @@
       @for (day of days(); track day.date) {
         <div
           class="day"
+          [style.--stagger]="$index"
           [class.out]="!day.inMonth"
           [class.today]="day.date === today"
           [class.selected]="day.date === selectedDay()"
@@ -70,7 +71,7 @@
             }
           </span>
           @for (clip of day.clips; track clip.id) {
-            <article class="clip-card" [style.--brand]="clip.brandColor" draggable="true" (dragstart)="onDragStart($event, clip.id)">
+            <article class="clip-card" [style.--brand]="clip.brandColor" [class.dragging]="draggingId() === clip.id" draggable="true" (dragstart)="onDragStart($event, clip.id)" (dragend)="onDragEnd($event)">
               <a [routerLink]="['/clips', clip.id]">
                 <time [attr.datetime]="clip.postDate + 'T' + clip.postTime">{{ time(clip.postTime) }}</time>
                 <strong>{{ clip.title }}</strong>

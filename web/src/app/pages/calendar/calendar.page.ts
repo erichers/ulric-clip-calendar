@@ -23,6 +23,7 @@ export class CalendarPage {
   private statusChart?: Chart;
   private brandChart?: Chart;
   private dragId: string | null = null;
+  readonly draggingId = signal<string | null>(null);
 
   readonly bones = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
   readonly today = todayIso();
@@ -156,14 +157,28 @@ export class CalendarPage {
     if (brand) {
       params.set('brandId', brand);
     }
-    return `/api/export/${kind}?${params.toString()}`;
+    return `api/export/${kind}?${params.toString()}`;
   }
 
   onDragStart(event: DragEvent, id: string): void {
     this.dragId = id;
+    this.draggingId.set(id);
     event.dataTransfer?.setData('text/plain', id);
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
+    }
+    const card = event.currentTarget;
+    if (card instanceof HTMLElement) {
+      card.classList.add('dragging');
+    }
+  }
+
+  onDragEnd(event: DragEvent): void {
+    this.draggingId.set(null);
+    this.overDate.set(null);
+    const card = event.currentTarget;
+    if (card instanceof HTMLElement) {
+      card.classList.remove('dragging');
     }
   }
 

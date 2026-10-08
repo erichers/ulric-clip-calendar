@@ -130,7 +130,8 @@ export class BrandsPage {
   }
 
   async copy(url: string): Promise<void> {
-    await navigator.clipboard.writeText(`${location.origin}${url}`);
+    const absolute = new URL(url, document.baseURI).href;
+    await navigator.clipboard.writeText(absolute);
     this.copied.set(url);
   }
 

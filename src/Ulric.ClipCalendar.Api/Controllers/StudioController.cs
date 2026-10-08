@@ -32,7 +32,7 @@ public sealed class StudioController(AppDbContext db, FfmpegStatus ffmpeg, IConf
             .ThenBy(clip => clip.PostDate)
             .ThenBy(clip => clip.PostTime)
             .ThenBy(clip => clip.Title, StringComparer.Ordinal)
-            .Select(clip => ApiMapper.ToClip(clip, null, false))
+            .Select(clip => ApiMapper.ToClip(clip, null, false, configuration["PublicBaseUrl"]))
             .ToList();
     }
 
