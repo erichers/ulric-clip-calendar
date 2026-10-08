@@ -1,0 +1,142 @@
+<div class="shell">
+  <header class="page-head">
+    <div>
+      <p class="kicker">Calendar</p>
+      <h1>{{ heading() }}</h1>
+      <p class="lede">Plan clips by brand. Drag a card to another day, or use Move if you are on the keyboard.</p>
+    </div>
+    <div class="head-actions">
+      <button type="button" class="ghost" (click)="shift(-1)">Previous</button>
+      <button type="button" class="ghost" (click)="goToday()">Today</button>
+      <button type="button" class="ghost" (click)="shift(1)">Next</button>
+      <div class="seg" role="group" aria-label="Calendar view">
+        <button type="button" [class.on]="view() === 'month'" (click)="setView('month')">Month</button>
+        <button type="button" [class.on]="view() === 'week'" (click)="setView('week')">Week</button>
+      </div>
+      <a class="button" routerLink="/clips/new">New clip</a>
+      <a class="button ghost" [href]="exportHref('csv')">Export CSV</a>
+      <a class="button ghost" [href]="exportHref('pdf')">Export PDF</a>
+    </div>
+  </header>
+
+  @if (ffmpeg() && !ffmpeg()!.ffmpeg) {
+    <p class="banner" role="status">{{ ffmpeg()!.message }}</p>
+  }
+  @if (error()) {
+    <p class="banner" role="alert">{{ error() }}</p>
+  }
+
+  <div class="chips" role="tablist" aria-label="Brands">
+    <button type="button" [class.on]="brandId() === null" (click)="setBrand(null)">All brands</button>
+    @for (brand of brands(); track brand.id) {
+      <button type="button" [class.on]="brandId() === brand.id" (click)="setBrand(brand.id)">
+        <i class="swatch" [style.background]="brand.color"></i>{{ brand.name }}
+      </button>
+    }
+  </div>
+  @if (selectedBrand(); as brand) {
+    <p class="lede">{{ brand.cadenceLabel }} at {{ brand.defaultPostTime }}. Cadence days are marked on the grid.</p>
+  }
+
+  @if (loading()) {
+    <div class="skeleton-grid" aria-hidden="true">
+      @for (bone of bones; track bone) {
+        <div class="bone"></div>
+      }
+    </div>
+  } @else {
+    <div class="weekdays" aria-hidden="true">
+      @for (name of weekdays; track name) {
+        <span>{{ name }}</span>
+      }
+    </div>
+    <div class="grid" [class.month]="view() === 'month'" [class.week]="view() === 'week'">
+      @for (day of days(); track day.date) {
+        <div
+          class="day"
+          [class.out]="!day.inMonth"
+          [class.today]="day.date === today"
+          [class.selected]="day.date === selectedDay()"
+          [class.cadence]="day.cadence"
+          [class.drop]="overDate() === day.date"
+          (click)="selectedDay.set(day.date)"
+          (dragover)="onDragOver($event, day.date)"
+          (drop)="onDrop($event, day.date)"
+        >
+          <span class="num">{{ view() === 'week' ? day.weekday + ' ' : '' }}{{ day.number }}</span>
+          <span class="dots">
+            @for (clip of day.clips; track clip.id) {
+              <i class="dot" [style.background]="clip.brandColor"></i>
+            }
+          </span>
+          @for (clip of day.clips; track clip.id) {
+            <article class="clip-card" [style.--brand]="clip.brandColor" draggable="true" (dragstart)="onDragStart($event, clip.id)">
+              <a [routerLink]="['/clips', clip.id]">
+                <time [attr.datetime]="clip.postDate + 'T' + clip.postTime">{{ time(clip.postTime) }}</time>
+                <strong>{{ clip.title }}</strong>
+                <span class="meta">
+                  @if (clip.series) {
+                    <span>{{ clip.series }}@if (clip.seriesPart) { · {{ clip.seriesPart }} }</span>
+                  }
+                  <span [class]="pill(clip.status)">{{ label(clip.status) }}</span>
+                </span>
+              </a>
+              <details class="move" (click)="$event.stopPropagation()">
+                <summary>Move</summary>
+                <label>
+                  <span class="sr-only">Post date for {{ clip.title }}</span>
+                  <input type="date" [value]="clip.postDate" (change)="move(clip, $event, 'date')" />
+                </label>
+                <label>
+                  <span class="sr-only">Post time for {{ clip.title }}</span>
+                  <input type="time" [value]="time(clip.postTime)" (change)="move(clip, $event, 'time')" />
+                </label>
+              </details>
+            </article>
+          }
+        </div>
+      }
+    </div>
+
+    @if (agenda(); as day) {
+      <section class="agenda" aria-label="Selected day">
+        <h2>{{ day.weekday }} {{ day.number }}</h2>
+        @if (day.clips.length === 0) {
+          <p class="empty">Nothing scheduled. <a routerLink="/clips/new">Add a clip</a>.</p>
+        }
+        @for (clip of day.clips; track clip.id) {
+          <article class="clip-card" [style.--brand]="clip.brandColor">
+            <a [routerLink]="['/clips', clip.id]">
+              <time>{{ time(clip.postTime) }}</time>
+              <strong>{{ clip.title }}</strong>
+              <span class="meta">{{ clip.brandName }} · <span [class]="pill(clip.status)">{{ label(clip.status) }}</span></span>
+            </a>
+          </article>
+        }
+      </section>
+    }
+
+    @if (stats(); as stats) {
+      <section class="charts" aria-label="Schedule counts">
+        <article class="panel">
+          <h2>By status</h2>
+          <div class="chart-box"><canvas #statusChart></canvas></div>
+          <ul class="stat-list">
+            @for (row of stats.byStatus; track row.status) {
+              <li>{{ label(row.status) }}: {{ row.count }}</li>
+            }
+          </ul>
+        </article>
+        <article class="panel">
+          <h2>By brand</h2>
+          <div class="chart-box"><canvas #brandChart></canvas></div>
+          <ul class="stat-list">
+            @for (row of stats.byBrand; track row.brand) {
+              <li>{{ row.brand }}: {{ row.count }}</li>
+            }
+          </ul>
+        </article>
+      </section>
+    }
+  }
+</div>

@@ -1,0 +1,86 @@
+<div class="shell">
+  <p class="kicker">Shared schedule</p>
+  <h1>{{ schedule()?.label || 'Schedule' }}</h1>
+  <p class="lede">
+    @if (schedule()?.brandName) { {{ schedule()!.brandName }}. }
+    Read only. This page is not indexed.
+  </p>
+  @if (schedule()?.rangeStart || schedule()?.rangeEnd) {
+    <p class="meta">{{ schedule()?.rangeStart || 'Start' }} to {{ schedule()?.rangeEnd || 'open' }}</p>
+  }
+  @if (error()) {
+    <p class="banner" role="alert">{{ error() }}</p>
+  }
+  @if (loading()) {
+    <div class="bone"></div>
+  } @else if (schedule()) {
+    <div class="toolbar">
+      <button type="button" class="ghost" (click)="shift(-1)">Previous</button>
+      <button type="button" class="ghost" (click)="shift(1)">Next</button>
+      <div class="seg">
+        <button type="button" [class.on]="view() === 'month'" (click)="setView('month')">Month</button>
+        <button type="button" [class.on]="view() === 'week'" (click)="setView('week')">Week</button>
+      </div>
+      <strong>{{ heading() }}</strong>
+    </div>
+    <div class="weekdays" aria-hidden="true">
+      @for (name of weekdays; track name) { <span>{{ name }}</span> }
+    </div>
+    <div class="grid" [class.month]="view() === 'month'" [class.week]="view() === 'week'">
+      @for (day of days(); track day.date) {
+        <div class="day" [class.out]="!day.inMonth" [class.today]="day.date === today" [class.selected]="day.date === selectedDay()" (click)="selectedDay.set(day.date)">
+          <span class="num">{{ day.number }}</span>
+          <span class="dots">
+            @for (clip of day.clips; track clip.id) {
+              <i class="dot" [style.background]="clip.brandColor"></i>
+            }
+          </span>
+          @for (clip of day.clips; track clip.id) {
+            <button type="button" class="clip-card" [style.--brand]="clip.brandColor" (click)="open(clip); $event.stopPropagation()">
+              <time>{{ time(clip.postTime) }}</time>
+              <strong>{{ clip.title }}</strong>
+              <span class="meta">
+                {{ clip.brandName }}
+                <span [class]="pill(clip.status)">{{ label(clip.status) }}</span>
+              </span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+    <section class="agenda">
+      <h2>Selected day</h2>
+      @for (day of days(); track day.date) {
+        @if (day.date === selectedDay()) {
+          @for (clip of day.clips; track clip.id) {
+            <button type="button" class="clip-card" [style.--brand]="clip.brandColor" (click)="open(clip)">
+              <strong>{{ clip.title }}</strong>
+              <span class="meta">{{ time(clip.postTime) }} · {{ clip.brandName }}</span>
+            </button>
+          }
+        }
+      }
+    </section>
+  }
+
+  <dialog #preview (click)="onBackdrop($event)">
+    @if (active(); as clip) {
+      <div class="stack">
+        <p class="kicker">{{ clip.brandName }}</p>
+        <h2>{{ clip.title }}</h2>
+        <div class="frame">
+          @if (clip.previewUrl) {
+            <video [src]="clip.previewUrl" [poster]="clip.thumbnailUrl || ''" controls playsinline></video>
+          } @else if (clip.sourceLink) {
+            <div class="poster"><a [href]="clip.sourceLink">Open the linked clip</a></div>
+          } @else {
+            <div class="poster">No preview</div>
+          }
+        </div>
+        <p>{{ clip.caption }}</p>
+        <p>{{ clip.hashtags }}</p>
+        <button type="button" class="ghost" (click)="close()">Close</button>
+      </div>
+    }
+  </dialog>
+</div>
