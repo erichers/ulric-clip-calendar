@@ -42,6 +42,20 @@
       }
     </div>
   } @else {
+    @if (view() === 'week') {
+      <section class="week-stage" [class.live]="stageOn()" aria-hidden="true">
+        <div class="week-fallback">
+          @for (day of days(); track day.date) {
+            <div>
+              @for (clip of day.clips.slice(0, 2); track clip.id) {
+                <p [style.--brand]="clip.brandColor">{{ time(clip.postTime) }} {{ clip.title }}</p>
+              }
+            </div>
+          }
+        </div>
+        <canvas #weekCanvas class="week-canvas"></canvas>
+      </section>
+    }
     <div class="weekdays" aria-hidden="true">
       @for (name of weekdays; track name) {
         <span>{{ name }}</span>
@@ -51,6 +65,7 @@
       @for (day of days(); track day.date) {
         <div
           class="day"
+          [style.--stagger]="$index"
           [class.out]="!day.inMonth"
           [class.today]="day.date === today"
           [class.selected]="day.date === selectedDay()"
@@ -114,13 +129,21 @@
     }
 
     @if (stats(); as stats) {
-      <section class="charts" aria-label="Schedule counts">
+      <section class="charts" #chartsRoot aria-label="Schedule counts">
+        <article class="panel spark-panel">
+          <h2>Posts</h2>
+          <p class="meta"><span class="count" [appCount]="clipTotal()"></span> in this range</p>
+          <svg class="spark" viewBox="0 0 640 72" aria-hidden="true">
+            <path class="spark-area" [attr.d]="spark().area" />
+            <path class="spark-line" [attr.d]="spark().line" />
+          </svg>
+        </article>
         <article class="panel">
           <h2>By status</h2>
           <div class="chart-box"><canvas #statusChart></canvas></div>
           <ul class="stat-list">
             @for (row of stats.byStatus; track row.status) {
-              <li>{{ label(row.status) }}: {{ row.count }}</li>
+              <li>{{ label(row.status) }}: <span class="count" [appCount]="row.count"></span></li>
             }
           </ul>
         </article>
@@ -129,10 +152,36 @@
           <div class="chart-box"><canvas #brandChart></canvas></div>
           <ul class="stat-list">
             @for (row of stats.byBrand; track row.brand) {
-              <li>{{ row.brand }}: {{ row.count }}</li>
+              <li>{{ row.brand }}: <span class="count" [appCount]="row.count"></span></li>
             }
           </ul>
         </article>
+      </section>
+      <section class="flow" #flowRoot aria-labelledby="flow-title">
+        <h2 id="flow-title">How a clip moves</h2>
+        <svg viewBox="0 0 680 156" role="img">
+          <title>Draft goes to needs review, then approved. Hold sends it back to draft.</title>
+          <path class="flow-line" d="M120 42 H228" />
+          <path class="flow-line delay-1" d="M372 42 H478" />
+          <path class="flow-line delay-2" d="M300 74 C300 124, 64 124, 64 78" />
+          <g class="flow-node">
+            <rect x="8" y="18" width="112" height="48" />
+            <text x="64" y="48" text-anchor="middle">Draft</text>
+          </g>
+          <g class="flow-node delay-1">
+            <rect x="228" y="18" width="144" height="48" />
+            <text x="300" y="48" text-anchor="middle">Needs review</text>
+          </g>
+          <g class="flow-node delay-2">
+            <rect x="478" y="18" width="128" height="48" />
+            <text x="542" y="48" text-anchor="middle">Approved</text>
+          </g>
+          <g class="flow-node delay-3 hold">
+            <rect x="8" y="96" width="112" height="42" />
+            <text x="64" y="123" text-anchor="middle">Hold</text>
+          </g>
+        </svg>
+        <p class="lede">Draft goes to needs review. Approve it, or hold it and send it back to draft.</p>
       </section>
     }
   }

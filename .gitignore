@@ -13,3 +13,5 @@ src/Ulric.ClipCalendar.Api/wwwroot/*
 web/node_modules/
 web/dist/
 web/.angular/
+video/node_modules/
+video/out/

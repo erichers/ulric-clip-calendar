@@ -21,6 +21,7 @@
   --serif: "Newsreader", "Iowan Old Style", Palatino, Georgia, serif;
   --sans: "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.28, 0.4, 1);
 }
 
 html[data-theme="dark"] {
@@ -92,8 +93,19 @@ a { color: var(--accent-strong); }
 
 button, input, select, textarea { font: inherit; color: inherit; }
 
-button, .button, .clip-card, .day, a, .chips button, .seg button {
-  transition: background-color 180ms var(--ease), border-color 180ms var(--ease), color 180ms var(--ease), opacity 180ms var(--ease);
+html, body, .top, .foot, h1, h2, h3, p, a, .num, .lede, .meta, .kicker, .mark-name, .mark-studio, nav a, .pill,
+.status-draft, .status-needs, .status-approved, .status-hold, .panel, dialog, .banner, .empty {
+  transition: background-color 340ms var(--ease), color 340ms var(--ease), border-color 340ms var(--ease);
+}
+
+button, .button, .clip-card, .day, .chips button, .seg button, .theme {
+  transition:
+    background-color 220ms var(--spring),
+    border-color 220ms var(--spring),
+    color 280ms var(--ease),
+    opacity 200ms var(--spring),
+    transform 220ms var(--spring),
+    box-shadow 220ms var(--spring);
 }
 
 :focus-visible {
@@ -208,6 +220,7 @@ nav a.active {
 
 .theme:hover, button.ghost:hover, .button.ghost:hover {
   border-color: var(--ink);
+  transform: translateY(-1px);
 }
 
 a.button:not(.ghost), button.primary {
@@ -220,6 +233,7 @@ a.button:not(.ghost), button.primary {
 a.button:not(.ghost):hover, button.primary:hover {
   background: color-mix(in srgb, var(--accent) 82%, var(--ink));
   border-color: color-mix(in srgb, var(--accent) 82%, var(--ink));
+  transform: translateY(-1px);
 }
 
 button:disabled {
@@ -342,6 +356,8 @@ main { padding: 2.75rem 0 4.5rem; }
 }
 
 .day {
+  animation: rise 340ms var(--ease) both;
+  animation-delay: calc(min(var(--stagger, 0), 14) * 18ms);
   min-height: 8.4rem;
   border: 0;
   border-right: 1px solid var(--line);
@@ -465,6 +481,7 @@ main { padding: 2.75rem 0 4.5rem; }
 .agenda { display: none; }
 
 .panel {
+  animation: rise 360ms var(--ease) both;
   background: transparent;
   border: 1px solid var(--line);
   border-radius: 0;
@@ -734,12 +751,126 @@ legend { padding: 0; color: var(--muted); }
 }
 
 .shell {
-  animation: page-in 200ms var(--ease) both;
+  animation: page-in 340ms var(--ease) both;
 }
 
+.count { font-variant-numeric: tabular-nums; }
+
+.week-stage {
+  position: relative;
+  height: 220px;
+  margin: 0.15rem 0 0.85rem;
+}
+
+.week-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: pan-y;
+}
+
+.week-fallback {
+  position: absolute;
+  inset: 0.35rem 0 0.45rem;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.3rem;
+}
+
+.week-stage.live .week-fallback { visibility: hidden; }
+
+.week-fallback p {
+  margin: 0 0 0.28rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+  border-left: 2px solid var(--brand, var(--accent));
+  padding-left: 0.28rem;
+  overflow: hidden;
+}
+
+.charts .spark-panel { grid-column: 1 / -1; }
+.charts .panel:nth-child(2) { animation-delay: 70ms; }
+.charts .panel:nth-child(3) { animation-delay: 130ms; }
+
+.spark { width: 100%; height: 72px; display: block; margin-top: 0.35rem; }
+.spark-line, .spark-area { fill: none; }
+.spark-line {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 1600;
+  stroke-dashoffset: 1600;
+}
+.spark-area { fill: color-mix(in srgb, var(--accent) 16%, transparent); opacity: 0; }
+.charts.play .spark-line { animation: draw 720ms var(--ease) forwards; }
+.charts.play .spark-area { animation: fade-area 380ms var(--ease) 460ms forwards; }
+
+.flow {
+  margin-top: 1.75rem;
+  animation: rise 360ms var(--ease) both;
+}
+.flow svg { width: min(100%, 680px); height: auto; display: block; margin-top: 0.8rem; }
+.flow-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.25;
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+}
+.flow-node { opacity: 0; }
+.flow-node rect { fill: transparent; stroke: var(--line); stroke-width: 1; }
+.flow-node text { fill: var(--ink); font-family: var(--serif); font-size: 16px; }
+.flow-node.hold text { fill: var(--hold); }
+.flow.play .flow-line { animation: draw 520ms var(--ease) forwards; }
+.flow.play .flow-line.delay-1 { animation-delay: 160ms; }
+.flow.play .flow-line.delay-2 { animation-delay: 320ms; }
+.flow.play .flow-node { animation: rise 320ms var(--ease) forwards; }
+.flow.play .flow-node.delay-1 { animation-delay: 120ms; }
+.flow.play .flow-node.delay-2 { animation-delay: 220ms; }
+.flow.play .flow-node.delay-3 { animation-delay: 340ms; }
+
+.stack .brand-card:nth-child(2) { animation-delay: 50ms; }
+.stack .brand-card:nth-child(3) { animation-delay: 110ms; }
+
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fade-area {
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  to { opacity: 0; }
+}
+
+::view-transition-old(root) {
+  animation: 280ms var(--ease) both fade-out;
+}
+
+::view-transition-new(root) {
+  animation: 300ms var(--ease) both fade-in;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 720px) {
+  .week-stage { height: 168px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -749,4 +880,10 @@ legend { padding: 0; color: var(--muted); }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+  .spark-line, .flow-line { stroke-dashoffset: 0; }
+  .spark-area, .flow-node { opacity: 1; }
 }

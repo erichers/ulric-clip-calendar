@@ -13,7 +13,7 @@
           <article class="panel brand-card">
             <header>
               <h2><i class="swatch" [style.background]="brand.color"></i> {{ brand.name }}</h2>
-              <span>{{ brand.clipCount }} clips</span>
+              <span><span class="count" [appCount]="brand.clipCount"></span> clips</span>
             </header>
             <p>{{ brand.description }}</p>
             <p>{{ brand.cadenceLabel }} at {{ brand.defaultPostTime }}</p>

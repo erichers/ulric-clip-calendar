@@ -4,14 +4,16 @@ import { Chart, registerables } from 'chart.js';
 import { firstValueFrom } from 'rxjs';
 import { ApiService, errorText } from '../../core/api.service';
 import { dayNumber, eachDay, monthGrid, monthTitle, parseIso, sameMonth, todayIso, weekdayIndex, weekdayShort, weekRange } from '../../core/dates';
+import { CountUpDirective, watchInview } from '../../core/motion';
 import { Brand, Capabilities, Clip, Stats, platformLabel, shortTime, statusClass, statusLabel } from '../../core/models';
 import { ThemeService } from '../../core/theme.service';
+import { WeekCard, mountWeekStage } from './week-stage';
 
 Chart.register(...registerables);
 
 @Component({
   selector: 'app-calendar',
-  imports: [RouterLink],
+  imports: [RouterLink, CountUpDirective],
   templateUrl: './calendar.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
@@ -20,6 +22,9 @@ export class CalendarPage {
   private readonly theme = inject(ThemeService);
   private readonly statusCanvas = viewChild<ElementRef<HTMLCanvasElement>>('statusChart');
   private readonly brandCanvas = viewChild<ElementRef<HTMLCanvasElement>>('brandChart');
+  private readonly weekCanvas = viewChild<ElementRef<HTMLCanvasElement>>('weekCanvas');
+  private readonly chartsRoot = viewChild<ElementRef<HTMLElement>>('chartsRoot');
+  private readonly flowRoot = viewChild<ElementRef<HTMLElement>>('flowRoot');
   private statusChart?: Chart;
   private brandChart?: Chart;
   private dragId: string | null = null;
@@ -40,6 +45,8 @@ export class CalendarPage {
   readonly selectedDay = signal(todayIso());
   readonly overDate = signal<string | null>(null);
   readonly range = signal(monthGrid(todayIso()));
+  readonly stageOn = signal(false);
+  readonly chartsSeen = signal(false);
 
   readonly heading = computed(() =>
     this.view() === 'month'
@@ -71,16 +78,89 @@ export class CalendarPage {
 
   readonly agenda = computed(() => this.days().find((day) => day.date === this.selectedDay()) ?? this.days()[0]);
 
+  readonly clipTotal = computed(() => this.clips().length);
+
+  readonly weekCards = computed<WeekCard[]>(() => {
+    const cards: WeekCard[] = [];
+    this.days().forEach((day, dayIndex) => {
+      day.clips.slice(0, 3).forEach((clip, stack) => {
+        cards.push({ dayIndex, stack, color: clip.brandColor || '#d97757' });
+      });
+    });
+    return cards;
+  });
+
+  readonly spark = computed(() => {
+    const counts = this.days().map((day) => day.clips.length);
+    const width = 640;
+    const height = 72;
+    const max = Math.max(1, ...counts);
+    const step = counts.length > 1 ? width / (counts.length - 1) : 0;
+    const points = counts.map((count, index) => {
+      const x = index * step;
+      const y = height - 8 - (count / max) * (height - 22);
+      return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    });
+    const line = points.join(' ');
+    const area = counts.length ? `${line} L${width} ${height} L0 ${height} Z` : '';
+    return { line, area };
+  });
+
   constructor() {
     effect(() => {
       const stats = this.stats();
+      const seen = this.chartsSeen();
       const statusEl = this.statusCanvas()?.nativeElement;
       const brandEl = this.brandCanvas()?.nativeElement;
       this.theme.effective();
-      if (!stats || !statusEl || !brandEl) {
+      if (!seen || !stats || !statusEl || !brandEl) {
         return;
       }
       this.drawCharts(stats, statusEl, brandEl);
+    });
+    effect((onCleanup) => {
+      const root = this.chartsRoot()?.nativeElement;
+      if (!root) {
+        return;
+      }
+      onCleanup(watchInview(root, () => this.chartsSeen.set(true)));
+    });
+    effect((onCleanup) => {
+      const root = this.flowRoot()?.nativeElement;
+      if (!root) {
+        return;
+      }
+      onCleanup(watchInview(root, () => undefined));
+    });
+    effect((onCleanup) => {
+      const canvas = this.weekCanvas()?.nativeElement;
+      const show = this.view() === 'week' && !this.loading();
+      const mode = this.theme.effective();
+      const cards = this.weekCards();
+      let cancelled = false;
+      let dispose: () => void = () => undefined;
+      onCleanup(() => {
+        cancelled = true;
+        dispose();
+        this.stageOn.set(false);
+      });
+      if (!show || !canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+      }
+      void mountWeekStage(canvas, cards, mode)
+        .then((handle) => {
+          if (cancelled) {
+            handle.dispose();
+            return;
+          }
+          dispose = handle.dispose;
+          this.stageOn.set(true);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            this.stageOn.set(false);
+          }
+        });
     });
     void this.boot();
   }
@@ -250,7 +330,7 @@ export class CalendarPage {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: reduce ? false : { duration: 400 },
+        animation: reduce ? false : { duration: 640, easing: 'easeOutCubic' },
         plugins: { legend: { position: 'bottom' } }
       }
     });
@@ -263,14 +343,15 @@ export class CalendarPage {
             label: 'Clips',
             data: stats.byBrand.map((row) => row.count),
             backgroundColor: stats.byBrand.map((row) => row.color),
-            borderRadius: 6
+            borderRadius: 0,
+            borderSkipped: false
           }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: reduce ? false : { duration: 400 },
+        animation: reduce ? false : { duration: 680, easing: 'easeOutCubic' },
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false } },

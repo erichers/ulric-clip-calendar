@@ -2,10 +2,12 @@ import { ChangeDetectionStrategy, Component, ElementRef, effect, inject, signal,
 import * as L from 'leaflet';
 import { firstValueFrom } from 'rxjs';
 import { ApiService, errorText } from '../../core/api.service';
+import { CountUpDirective } from '../../core/motion';
 import { Brand, BrandWrite, ShareLink } from '../../core/models';
 
 @Component({
   selector: 'app-brands',
+  imports: [CountUpDirective],
   templateUrl: './brands.page.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

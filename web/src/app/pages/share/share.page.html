@@ -27,7 +27,7 @@
     </div>
     <div class="grid" [class.month]="view() === 'month'" [class.week]="view() === 'week'">
       @for (day of days(); track day.date) {
-        <div class="day" [class.out]="!day.inMonth" [class.today]="day.date === today" [class.selected]="day.date === selectedDay()" (click)="selectedDay.set(day.date)">
+        <div class="day" [style.--stagger]="$index" [class.out]="!day.inMonth" [class.today]="day.date === today" [class.selected]="day.date === selectedDay()" (click)="selectedDay.set(day.date)">
           <span class="num">{{ day.number }}</span>
           <span class="dots">
             @for (clip of day.clips; track clip.id) {

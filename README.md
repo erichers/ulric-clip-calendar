@@ -18,7 +18,7 @@ By Ulric studio.
 - CSV and PDF export for all brands or one brand.
 - Public read-only share links for a brand, a date range, or both. Share pages send a noindex tag.
 - Seeded demo brands Fern & Field and Night Shift Coffee, with a three month schedule and free-license clips. See [CREDITS.md](CREDITS.md).
-- Light and dark themes. Pages fade in over 200ms, and motion turns off when the browser asks for reduced motion.
+- Light and dark themes. See [Motion](#motion).
 - SQLite by default. MySQL is optional, including MAMP's MySQL 5.7.
 
 ## Feature tour
@@ -69,6 +69,24 @@ A token opens a read-only calendar. Unknown tokens 404, and the page asks search
 
 Phone captures for every screen are in [docs/screenshots](docs/screenshots).
 
+## Motion
+
+Pages crossfade on navigation. The first view, and each section inside it, fades and rises 12px over about 340ms with a short stagger. The curve is `cubic-bezier(0.2, 0.7, 0.2, 1)`. Buttons, the month/week switch, and drag targets use a short spring. Theme colors ease between paper and ink.
+
+Counts run up when they enter the viewport. The status ring and the brand bars grow from zero. A line of posts draws across the range, and the area fills after the line. "How a clip moves" is an SVG on the calendar: draft, needs review, approved, and hold.
+
+Week view lazy-loads three.js r170 for a spring-settled card timeline. The pixel ratio is capped at 2. Rendering pauses when the stage is offscreen or the tab is hidden. If WebGL is missing, or the browser asks for reduced motion, the same week is a static row and the 3D scene does not autoplay.
+
+A 24 second Remotion reel sits in `video/` for a portfolio cut. It is not part of CI.
+
+```bash
+cd video
+npm install
+npm run render
+```
+
+That writes `video/out/clip-calendar.mp4`.
+
 ## Stack
 
 - ASP.NET Core 8 Web API
@@ -76,6 +94,7 @@ Phone captures for every screen are in [docs/screenshots](docs/screenshots).
 - EF Core with SQLite, or Pomelo for MySQL
 - QuestPDF (Community license) for the schedule PDF
 - Chart.js for status and brand counts
+- three.js for the week card timeline, loaded only on that view
 - Leaflet and OpenStreetMap tiles for brand pins
 - ffmpeg and ffprobe for probe, thumbnail, preview, and trim
 - xUnit
