@@ -18,14 +18,14 @@ By Ulric studio.
 - CSV and PDF export for all brands or one brand.
 - Public read-only share links for a brand, a date range, or both. Share pages send a noindex tag.
 - Seeded demo brands Fern & Field and Night Shift Coffee, with a three month schedule and free-license clips. See [CREDITS.md](CREDITS.md).
-- Light and dark themes. Motion eases pages, cards, and drag targets, and it turns off when the browser asks for reduced motion.
+- Light and dark themes. Pages fade in over 200ms, and motion turns off when the browser asks for reduced motion.
 - SQLite by default. MySQL is optional, including MAMP's MySQL 5.7.
 
 ## Feature tour
 
 ### Calendar
 
-The month holds one post on each cadence day. Past posts are approved. Today and the next few days sit in review, with one hold nearby. Drag a card to another day.
+The month holds one post on each cadence day. Past posts are approved. Today and the next few days sit in review, with one hold nearby. Drag a clip to another day.
 
 ![Calendar, light, desktop](docs/screenshots/calendar-light-desktop.png)
 

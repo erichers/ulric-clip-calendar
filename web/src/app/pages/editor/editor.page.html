@@ -1,7 +1,6 @@
 <div class="shell">
-  <p class="kicker">Clip editor</p>
   <h1>{{ clip() ? draft().title || 'Untitled clip' : 'New clip' }}</h1>
-  <p class="lede">Write the caption, pick the platforms, and set the slot. Saving does not publish the clip.</p>
+  <p class="lede">Saving stores the clip here. It does not publish it.</p>
   <p><a routerLink="/">Back to the calendar</a></p>
 
   @if (ffmpeg() && !ffmpeg()!.ffmpeg) {

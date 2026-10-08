@@ -1,10 +1,7 @@
 <div class="shell">
   <header class="page-head">
-    <div>
-      <p class="kicker">Calendar</p>
-      <h1>{{ heading() }}</h1>
-      <p class="lede">Plan clips by brand. Drag a card to another day, or use Move if you are on the keyboard.</p>
-    </div>
+    <h1>{{ heading() }}</h1>
+    <p class="lede">Drag a clip onto another day. Move sets the date from the keyboard.</p>
     <div class="head-actions">
       <button type="button" class="ghost" (click)="shift(-1)">Previous</button>
       <button type="button" class="ghost" (click)="goToday()">Today</button>
@@ -54,7 +51,6 @@
       @for (day of days(); track day.date) {
         <div
           class="day"
-          [style.--stagger]="$index"
           [class.out]="!day.inMonth"
           [class.today]="day.date === today"
           [class.selected]="day.date === selectedDay()"

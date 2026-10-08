@@ -1,7 +1,10 @@
 <a class="skip" href="#content">Skip to content</a>
 <header class="top">
   <div class="top-inner">
-    <a class="mark" routerLink="/">Ulric studio</a>
+    <a class="mark" routerLink="/">
+      <span class="mark-name">Clip Calendar</span>
+      <span class="mark-studio">Ulric</span>
+    </a>
     @if (!shareMode()) {
       <nav aria-label="Primary">
         <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Calendar</a>
@@ -27,7 +30,10 @@
 </main>
 <footer class="foot">
   <div class="foot-inner">
-    <p class="mark">Ulric studio</p>
-    <p>Clip calendar for creators and small brands. This studio plans posts. It does not publish them.</p>
+    <p class="mark">
+      <span class="mark-name">Clip Calendar</span>
+      <span class="mark-studio">Ulric</span>
+    </p>
+    <p>A schedule for clips. Nothing here is published to a platform.</p>
   </div>
 </footer>

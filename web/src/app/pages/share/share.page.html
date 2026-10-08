@@ -1,9 +1,8 @@
 <div class="shell">
-  <p class="kicker">Shared schedule</p>
   <h1>{{ schedule()?.label || 'Schedule' }}</h1>
   <p class="lede">
     @if (schedule()?.brandName) { {{ schedule()!.brandName }}. }
-    Read only. This page is not indexed.
+    Read only.
   </p>
   @if (schedule()?.rangeStart || schedule()?.rangeEnd) {
     <p class="meta">{{ schedule()?.rangeStart || 'Start' }} to {{ schedule()?.rangeEnd || 'open' }}</p>
