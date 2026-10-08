@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+data/
+*.db
+*.db-shm
+*.db-wal
+.env
+src/Ulric.ClipCalendar.Api/wwwroot/*
+!src/Ulric.ClipCalendar.Api/wwwroot/.gitkeep
+web/node_modules/
+web/dist/
+web/.angular/
+video/node_modules/
+video/out/

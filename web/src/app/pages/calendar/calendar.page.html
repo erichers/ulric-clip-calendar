@@ -1,0 +1,197 @@
+<div class="shell">
+  <header class="page-head">
+    <h1>{{ heading() }}</h1>
+    <p class="lede">Drag a clip onto another day. Move sets the date from the keyboard.</p>
+    <div class="head-actions">
+      <button type="button" class="ghost" (click)="shift(-1)">Previous</button>
+      <button type="button" class="ghost" (click)="goToday()">Today</button>
+      <button type="button" class="ghost" (click)="shift(1)">Next</button>
+      <div class="seg" role="group" aria-label="Calendar view">
+        <button type="button" [class.on]="view() === 'month'" (click)="setView('month')">Month</button>
+        <button type="button" [class.on]="view() === 'week'" (click)="setView('week')">Week</button>
+      </div>
+      <a class="button" routerLink="/clips/new">New clip</a>
+      <a class="button ghost" [href]="exportHref('csv')">Export CSV</a>
+      <a class="button ghost" [href]="exportHref('pdf')">Export PDF</a>
+    </div>
+  </header>
+
+  @if (ffmpeg() && !ffmpeg()!.ffmpeg) {
+    <p class="banner" role="status">{{ ffmpeg()!.message }}</p>
+  }
+  @if (error()) {
+    <p class="banner" role="alert">{{ error() }}</p>
+  }
+
+  <div class="chips" role="tablist" aria-label="Brands">
+    <button type="button" [class.on]="brandId() === null" (click)="setBrand(null)">All brands</button>
+    @for (brand of brands(); track brand.id) {
+      <button type="button" [class.on]="brandId() === brand.id" (click)="setBrand(brand.id)">
+        <i class="swatch" [style.background]="brand.color"></i>{{ brand.name }}
+      </button>
+    }
+  </div>
+  @if (selectedBrand(); as brand) {
+    <p class="lede">{{ brand.cadenceLabel }} at {{ brand.defaultPostTime }}. Cadence days are marked on the grid.</p>
+  }
+
+  @if (loading()) {
+    <div class="skeleton-grid" aria-hidden="true">
+      @for (bone of bones; track bone) {
+        <div class="bone"></div>
+      }
+    </div>
+  } @else {
+    @if (view() === 'week') {
+      <section class="week-stage" [class.live]="stageOn()">
+        <div class="week-fallback">
+          @for (day of days(); track day.date; let dayIndex = $index) {
+            <div class="week-col">
+              @for (clip of day.clips.slice(0, 2); track clip.id) {
+                <a class="week-face" [routerLink]="['/clips', clip.id]" [style.--brand]="clip.brandColor" [style.--stagger]="dayIndex">
+                  <span class="week-poster">
+                    @if (clip.thumbnailUrl) {
+                      <img [src]="clip.thumbnailUrl" alt="" />
+                    }
+                  </span>
+                  <time [attr.datetime]="clip.postDate + 'T' + clip.postTime">{{ time(clip.postTime) }}</time>
+                  <strong>{{ clip.title }}</strong>
+                  <span [class]="pill(clip.status)">{{ label(clip.status) }}</span>
+                </a>
+              }
+            </div>
+          }
+        </div>
+        <canvas #weekCanvas class="week-canvas" aria-hidden="true"></canvas>
+      </section>
+    }
+    <div class="weekdays" aria-hidden="true">
+      @for (name of weekdays; track name) {
+        <span>{{ name }}</span>
+      }
+    </div>
+    <div class="grid" [class.month]="view() === 'month'" [class.week]="view() === 'week'">
+      @for (day of days(); track day.date) {
+        <div
+          class="day"
+          [style.--stagger]="$index"
+          [class.out]="!day.inMonth"
+          [class.today]="day.date === today"
+          [class.selected]="day.date === selectedDay()"
+          [class.cadence]="day.cadence"
+          [class.drop]="overDate() === day.date"
+          (click)="selectedDay.set(day.date)"
+          (dragover)="onDragOver($event, day.date)"
+          (drop)="onDrop($event, day.date)"
+        >
+          <span class="num">{{ view() === 'week' ? day.weekday + ' ' : '' }}{{ day.number }}</span>
+          <span class="dots">
+            @for (clip of day.clips; track clip.id) {
+              <i class="dot" [style.background]="clip.brandColor"></i>
+            }
+          </span>
+          @for (clip of day.clips; track clip.id) {
+            <article class="clip-card" [style.--brand]="clip.brandColor" [class.dragging]="draggingId() === clip.id" draggable="true" (dragstart)="onDragStart($event, clip.id)" (dragend)="onDragEnd($event)">
+              <a [routerLink]="['/clips', clip.id]">
+                <time [attr.datetime]="clip.postDate + 'T' + clip.postTime">{{ time(clip.postTime) }}</time>
+                <strong>{{ clip.title }}</strong>
+                <span class="meta">
+                  @if (clip.series) {
+                    <span>{{ clip.series }}@if (clip.seriesPart) { · {{ clip.seriesPart }} }</span>
+                  }
+                  <span [class]="pill(clip.status)">{{ label(clip.status) }}</span>
+                </span>
+              </a>
+              <details class="move" (click)="$event.stopPropagation()">
+                <summary>Move</summary>
+                <label>
+                  <span class="sr-only">Post date for {{ clip.title }}</span>
+                  <input type="date" [value]="clip.postDate" (change)="move(clip, $event, 'date')" />
+                </label>
+                <label>
+                  <span class="sr-only">Post time for {{ clip.title }}</span>
+                  <input type="time" [value]="time(clip.postTime)" (change)="move(clip, $event, 'time')" />
+                </label>
+              </details>
+            </article>
+          }
+        </div>
+      }
+    </div>
+
+    @if (agenda(); as day) {
+      <section class="agenda" aria-label="Selected day">
+        <h2>{{ day.weekday }} {{ day.number }}</h2>
+        @if (day.clips.length === 0) {
+          <p class="empty">Nothing scheduled. <a routerLink="/clips/new">Add a clip</a>.</p>
+        }
+        @for (clip of day.clips; track clip.id) {
+          <article class="clip-card" [style.--brand]="clip.brandColor">
+            <a [routerLink]="['/clips', clip.id]">
+              <time>{{ time(clip.postTime) }}</time>
+              <strong>{{ clip.title }}</strong>
+              <span class="meta">{{ clip.brandName }} · <span [class]="pill(clip.status)">{{ label(clip.status) }}</span></span>
+            </a>
+          </article>
+        }
+      </section>
+    }
+
+    @if (stats(); as stats) {
+      <section class="charts" #chartsRoot aria-label="Schedule counts">
+        <article class="panel spark-panel">
+          <h2>Posts</h2>
+          <p class="meta"><span class="count" [appCount]="clipTotal()"></span> in this range</p>
+          <svg class="spark" viewBox="0 0 640 72" aria-hidden="true">
+            <path class="spark-area" [attr.d]="spark().area" />
+            <path class="spark-line" [attr.d]="spark().line" />
+          </svg>
+        </article>
+        <article class="panel">
+          <h2>By status</h2>
+          <div class="chart-box"><canvas #statusChart></canvas></div>
+          <ul class="stat-list">
+            @for (row of stats.byStatus; track row.status) {
+              <li>{{ label(row.status) }}: <span class="count" [appCount]="row.count"></span></li>
+            }
+          </ul>
+        </article>
+        <article class="panel">
+          <h2>By brand</h2>
+          <div class="chart-box"><canvas #brandChart></canvas></div>
+          <ul class="stat-list">
+            @for (row of stats.byBrand; track row.brand) {
+              <li>{{ row.brand }}: <span class="count" [appCount]="row.count"></span></li>
+            }
+          </ul>
+        </article>
+      </section>
+      <section class="flow" #flowRoot aria-labelledby="flow-title">
+        <h2 id="flow-title">How a clip moves</h2>
+        <svg viewBox="0 0 680 156" role="img">
+          <title>Draft goes to needs review, then approved. Hold sends it back to draft.</title>
+          <path class="flow-line" d="M120 42 H228" />
+          <path class="flow-line delay-1" d="M372 42 H478" />
+          <path class="flow-line delay-2" d="M300 74 C300 124, 64 124, 64 78" />
+          <g class="flow-node">
+            <rect x="8" y="18" width="112" height="48" />
+            <text x="64" y="48" text-anchor="middle">Draft</text>
+          </g>
+          <g class="flow-node delay-1">
+            <rect x="228" y="18" width="144" height="48" />
+            <text x="300" y="48" text-anchor="middle">Needs review</text>
+          </g>
+          <g class="flow-node delay-2">
+            <rect x="478" y="18" width="128" height="48" />
+            <text x="542" y="48" text-anchor="middle">Approved</text>
+          </g>
+          <g class="flow-node delay-3 hold">
+            <rect x="8" y="96" width="112" height="42" />
+            <text x="64" y="123" text-anchor="middle">Hold</text>
+          </g>
+        </svg>
+        <p class="lede">Draft goes to needs review. Approve it, or hold it and send it back to draft.</p>
+      </section>
+    }
+  }
+</div>

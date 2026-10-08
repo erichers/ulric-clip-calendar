@@ -1,0 +1,181 @@
+<div class="shell">
+  <h1>{{ clip() ? draft().title || 'Untitled clip' : 'New clip' }}</h1>
+  <p class="lede">Saving stores the clip here. It does not publish it.</p>
+  <p><a routerLink="/">Back to the calendar</a></p>
+
+  @if (ffmpeg() && !ffmpeg()!.ffmpeg) {
+    <p class="banner" role="status">{{ ffmpeg()!.message }}</p>
+  }
+  @if (error()) {
+    <p class="banner" role="alert">{{ error() }}</p>
+  }
+  @if (notice()) {
+    <p class="banner" role="status">{{ notice() }}</p>
+  }
+  @if (loading()) {
+    <div class="skeleton-grid" aria-hidden="true">
+      <div class="bone"></div>
+      <div class="bone"></div>
+    </div>
+  } @else {
+    <div class="editor-grid">
+      <form class="panel form-grid" (submit)="$event.preventDefault(); save()">
+        <label>
+          <span>Title</span>
+          <input [value]="draft().title" (input)="onText('title', $event)" required />
+        </label>
+        <label>
+          <span>Brand</span>
+          <select [value]="draft().brandId" (change)="onBrand($event)">
+            @for (brand of brands(); track brand.id) {
+              <option [value]="brand.id">{{ brand.name }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          <span>Caption</span>
+          <textarea [value]="draft().caption" (input)="onText('caption', $event)"></textarea>
+        </label>
+        <label>
+          <span>Hashtags</span>
+          <input [value]="draft().hashtags" (input)="onText('hashtags', $event)" />
+        </label>
+        <fieldset>
+          <legend>Platforms</legend>
+          @for (platform of platforms; track platform.id) {
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="draft().platforms.includes(platform.id)"
+                (change)="onPlatform(platform.id, $event)"
+              />
+              {{ platform.label }}
+            </label>
+          }
+        </fieldset>
+        <div class="split">
+          <label>
+            <span>Series</span>
+            <input [value]="draft().series" (input)="onText('series', $event)" />
+          </label>
+          <label>
+            <span>Part</span>
+            <input type="number" min="1" [value]="draft().seriesPart" (input)="onText('seriesPart', $event)" />
+          </label>
+        </div>
+        <div class="split">
+          <label>
+            <span>Post date</span>
+            <input type="date" [value]="draft().postDate" (input)="onText('postDate', $event)" required />
+          </label>
+          <label>
+            <span>Post time</span>
+            <input type="time" [value]="draft().postTime" (input)="onText('postTime', $event)" required />
+          </label>
+        </div>
+        <label class="check">
+          <input type="checkbox" [checked]="draft().storiesOk" (change)="onStories($event)" />
+          Stories ok
+        </label>
+        <label>
+          <span>Status</span>
+          <select [value]="draft().status" (change)="onStatus($event)">
+            @for (status of options(); track status) {
+              <option [value]="status">{{ label(status) }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          <span>Your name</span>
+          <input [value]="actor.name()" (input)="onActor($event)" />
+        </label>
+        <label>
+          <span>Video file</span>
+          <input type="file" accept="video/mp4,video/webm,video/quicktime,.mkv,.m4v" (change)="onFile($event)" />
+        </label>
+        @if (file(); as chosen) {
+          <p>{{ chosen.name }}</p>
+        }
+        <label>
+          <span>Or a link</span>
+          <input type="url" placeholder="https://" [value]="draft().sourceLink" (input)="onText('sourceLink', $event)" />
+        </label>
+        <div class="actions">
+          <button class="primary" type="submit" [disabled]="saving()">{{ saving() ? 'Saving' : 'Save clip' }}</button>
+        </div>
+      </form>
+
+      <aside class="preview-col stack">
+        <article class="panel stack">
+          <h2>9:16 preview</h2>
+          <div class="frame">
+            @if (clip()?.previewUrl) {
+              <video [src]="clip()!.previewUrl!" [poster]="clip()!.thumbnailUrl || ''" controls playsinline></video>
+            } @else if (clip()?.thumbnailUrl) {
+              <img [src]="clip()!.thumbnailUrl!" alt="" />
+            } @else {
+              <div class="poster">{{ draft().title || 'Preview lands here' }}</div>
+            }
+          </div>
+          @if (clip(); as current) {
+            <p>{{ current.mediaMessage }}</p>
+            <p class="meta">
+              @if (current.durationSeconds != null) { <span>{{ current.durationSeconds }}s</span> }
+              @if (current.width && current.height) { <span>{{ current.width }}×{{ current.height }}</span> }
+              @if (current.videoCodec) { <span>{{ current.videoCodec }}</span> }
+              <span [class]="pill(current.mediaState)">{{ current.mediaState }}</span>
+            </p>
+            @if (current.originalFileName) {
+              <p>File: {{ current.originalFileName }}</p>
+            }
+          }
+        </article>
+
+        @if (clip()?.originalFileName) {
+          <article class="panel stack">
+            <h2>Trim</h2>
+            <p>Optional. ffmpeg writes a new preview and keeps the original.</p>
+            <label>
+              <span>Start (seconds)</span>
+              <input type="number" min="0" step="0.1" [value]="trimStart()" (input)="onNumber('start', $event)" />
+            </label>
+            <label>
+              <span>End (seconds)</span>
+              <input type="number" min="0" step="0.1" [value]="trimEnd()" (input)="onNumber('end', $event)" />
+            </label>
+            <button type="button" class="primary" (click)="queueTrim()">Queue trim</button>
+          </article>
+        }
+
+        @if (clip(); as current) {
+          <article class="panel stack">
+            <h2>Notes</h2>
+            @for (comment of current.comments; track comment.id) {
+              <div class="comment">
+                <strong>{{ comment.author }}</strong>
+                <p>{{ comment.body }}</p>
+              </div>
+            }
+            <label>
+              <span>Add a note</span>
+              <textarea [value]="commentBody()" (input)="onComment($event)"></textarea>
+            </label>
+            <button type="button" class="ghost" (click)="addComment()">Add note</button>
+          </article>
+          <article class="panel stack">
+            <h2>Status history</h2>
+            @if (current.history.length === 0) {
+              <p>No status changes yet.</p>
+            }
+            @for (event of current.history; track event.id) {
+              <div class="history">
+                <p>{{ event.actor }} moved this from {{ label(event.fromStatus) }} to {{ label(event.toStatus) }}.</p>
+                @if (event.note) { <p>{{ event.note }}</p> }
+              </div>
+            }
+          </article>
+        }
+      </aside>
+    </div>
+  }
+</div>

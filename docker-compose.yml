@@ -1,0 +1,43 @@
+# Local demo only. The MySQL user and password below are examples for this compose file, not production secrets.
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Database__Provider: MySql
+      Database__ServerVersion: ""
+      ConnectionStrings__MySql: Server=mysql;Port=3306;Database=ulric;User=ulric;Password=ulric;CharSet=utf8mb4;
+      Storage__Root: /data
+      Seed__Enabled: "true"
+    volumes:
+      - ulric-data:/data
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.4
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci
+    environment:
+      MYSQL_DATABASE: ulric
+      MYSQL_USER: ulric
+      MYSQL_PASSWORD: ulric
+      MYSQL_ROOT_PASSWORD: ulric
+    ports:
+      - "3306:3306"
+    volumes:
+      - ulric-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pulric"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  ulric-data:
+  ulric-mysql:
