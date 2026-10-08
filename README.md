@@ -35,6 +35,10 @@ On a phone the month collapses to dots, and the selected day opens underneath.
 
 ![Calendar, light, phone](docs/screenshots/calendar-light-phone.png)
 
+Week view puts the poster's time, title, and status on each card.
+
+![Week, light, desktop](docs/screenshots/week-light-desktop.png)
+
 ### Review
 
 J and K move through the queue. A approves, H holds, R sends it back to needs review, and D returns it to draft.
