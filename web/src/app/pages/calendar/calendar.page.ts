@@ -84,7 +84,15 @@ export class CalendarPage {
     const cards: WeekCard[] = [];
     this.days().forEach((day, dayIndex) => {
       day.clips.slice(0, 3).forEach((clip, stack) => {
-        cards.push({ dayIndex, stack, color: clip.brandColor || '#d97757' });
+        cards.push({
+          dayIndex,
+          stack,
+          color: clip.brandColor || '#d97757',
+          title: clip.title,
+          time: shortTime(clip.postTime),
+          status: statusLabel(clip.status),
+          thumb: clip.thumbnailUrl
+        });
       });
     });
     return cards;
@@ -144,7 +152,8 @@ export class CalendarPage {
         dispose();
         this.stageOn.set(false);
       });
-      if (!show || !canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const narrow = window.matchMedia('(max-width: 800px)').matches;
+      if (!show || !canvas || narrow || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         return;
       }
       void mountWeekStage(canvas, cards, mode)

@@ -2,18 +2,45 @@ export interface WeekCard {
   dayIndex: number;
   stack: number;
   color: string;
+  title: string;
+  time: string;
+  status: string;
+  thumb: string | null;
 }
 
 export interface WeekStageHandle {
   dispose: () => void;
 }
 
+const STATUS_COLOR: Record<string, string> = {
+  Draft: '#6a645c',
+  'Needs review': '#8f4630',
+  Approved: '#2f5a40',
+  Hold: '#6d4a62'
+};
+
+const STATUS_COLOR_DARK: Record<string, string> = {
+  Draft: '#b7b0a6',
+  'Needs review': '#f0c2b0',
+  Approved: '#9dccb0',
+  Hold: '#d4b4cc'
+};
+
 export async function mountWeekStage(
   canvas: HTMLCanvasElement,
   cards: WeekCard[],
   mode: 'light' | 'dark'
 ): Promise<WeekStageHandle> {
+  await document.fonts.ready;
+  await Promise.all([
+    document.fonts.load('400 13px Inter'),
+    document.fonts.load('500 15px Inter'),
+    document.fonts.load('500 17px Newsreader')
+  ]).catch(() => undefined);
+
+  await waitForBox(canvas);
   const THREE = await import('three');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -22,81 +49,121 @@ export async function mountWeekStage(
   });
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.setPixelRatio(dpr);
 
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-3.6, 3.6, 1, -1, 0.1, 30);
-  camera.position.set(0, 0.52, 8);
-  camera.lookAt(0, 0.52, 0);
-
-  const hemi = new THREE.HemisphereLight(mode === 'dark' ? 0xc8beb2 : 0xfff6ee, mode === 'dark' ? 0x1a1816 : 0xe7dfd4, 0.85);
-  scene.add(hemi);
-  const key = new THREE.DirectionalLight(mode === 'dark' ? 0xf0e6da : 0xfffaf4, 1.35);
-  key.position.set(3.2, 6.4, 4.2);
-  key.castShadow = true;
-  key.shadow.mapSize.set(1024, 1024);
-  key.shadow.camera.near = 0.5;
-  key.shadow.camera.far = 22;
-  key.shadow.camera.left = -6;
-  key.shadow.camera.right = 6;
-  key.shadow.camera.top = 5;
-  key.shadow.camera.bottom = -3;
-  scene.add(key);
-  scene.add(new THREE.AmbientLight(mode === 'dark' ? 0x3a342e : 0xfff3ea, 0.35));
-
-  const paper = mode === 'dark' ? '#3a342e' : '#fffdf8';
-  const line = mode === 'dark' ? '#3a3631' : '#e4ddd3';
-  const floorColor = mode === 'dark' ? '#141311' : '#faf9f5';
-
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(14, 6),
-    new THREE.MeshStandardMaterial({ color: floorColor, roughness: 1, metalness: 0 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0;
-  floor.receiveShadow = true;
-  scene.add(floor);
-
-  const baseline = new THREE.Mesh(
-    new THREE.BoxGeometry(7.7, 0.015, 0.02),
-    new THREE.MeshStandardMaterial({ color: line, roughness: 1, metalness: 0 })
-  );
-  baseline.position.set(0, 0.02, 0.15);
-  baseline.receiveShadow = true;
-  scene.add(baseline);
-
-  const bodyGeo = new THREE.BoxGeometry(0.86, 1.02, 0.07);
-  const edgeGeo = new THREE.BoxGeometry(0.055, 1.02, 0.082);
-  const bodyMat = new THREE.MeshStandardMaterial({ color: paper, roughness: 0.9, metalness: 0 });
-  const edgeMats = new Map<string, InstanceType<typeof THREE.MeshStandardMaterial>>();
-  const edgeMaterial = (color: string) => {
-    const cached = edgeMats.get(color);
-    if (cached) {
-      return cached;
-    }
-    const material = new THREE.MeshStandardMaterial({ color, roughness: 0.48, metalness: 0.06 });
-    edgeMats.set(color, material);
-    return material;
-  };
+  camera.position.set(0, 0, 8);
+  camera.lookAt(0, 0, 0);
 
   const span = 7.05;
-  const bodies = cards.slice(0, 21).map((card, index) => {
-    const group = new THREE.Group();
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    const edge = new THREE.Mesh(edgeGeo, edgeMaterial(card.color || '#d97757'));
-    body.castShadow = true;
-    body.receiveShadow = true;
-    edge.castShadow = true;
-    edge.position.x = -0.4;
-    group.add(body, edge);
+  const cardW = 0.9;
+  const cardH = 1.48;
+  const textures: InstanceType<typeof THREE.CanvasTexture>[] = [];
+  const materials: InstanceType<typeof THREE.MeshBasicMaterial>[] = [];
+  const images: HTMLImageElement[] = [];
+  let running = true;
+
+  const paint = (target: HTMLCanvasElement, card: WeekCard, photo: HTMLImageElement | null) => {
+    const ctx = target.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+    const width = target.width / dpr;
+    const height = target.height / dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    const paper = mode === 'dark' ? '#1c1b18' : '#fffdf8';
+    const ink = mode === 'dark' ? '#f3f0e8' : '#1c1b19';
+    const muted = mode === 'dark' ? '#b7b0a6' : '#6a645c';
+    const line = mode === 'dark' ? '#3a3631' : '#e4ddd3';
+    ctx.fillStyle = paper;
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = card.color || '#d97757';
+    ctx.fillRect(0, 0, 5, height);
+
+    const posterH = Math.round(height * 0.56);
+    ctx.fillStyle = mode === 'dark' ? '#2a2622' : '#f0e7dc';
+    ctx.fillRect(5, 0, width - 5, posterH);
+    if (photo && photo.naturalWidth > 0) {
+      const frameW = width - 5;
+      const scale = Math.max(frameW / photo.naturalWidth, posterH / photo.naturalHeight);
+      const dw = photo.naturalWidth * scale;
+      const dh = photo.naturalHeight * scale;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(5, 0, frameW, posterH);
+      ctx.clip();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(photo, 5 + (frameW - dw) / 2, (posterH - dh) / 2, dw, dh);
+      ctx.restore();
+    }
+
+    const textX = 14;
+    const textW = width - 26;
+    let y = posterH + 12;
+    ctx.fillStyle = muted;
+    ctx.font = '500 13px Inter, Helvetica, sans-serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText(card.time, textX, y);
+    y += 20;
+    ctx.fillStyle = ink;
+    ctx.font = '500 16px Newsreader, Georgia, serif';
+    for (const lineText of wrap(ctx, card.title, textW, 2)) {
+      ctx.fillText(lineText, textX, y);
+      y += 20;
+    }
+    y += 4;
+    ctx.fillStyle = (mode === 'dark' ? STATUS_COLOR_DARK : STATUS_COLOR)[card.status] ?? muted;
+    ctx.font = '500 11px Inter, Helvetica, sans-serif';
+    const status = card.status.toUpperCase();
+    ctx.fillText(status, textX, y);
+
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+  };
+
+  const bodies = cards.slice(0, 14).map((card, index) => {
+    const screenW = (cardW / 7.35) * canvas.clientWidth;
+    const screenH = screenW * (cardH / cardW);
+    const plate = document.createElement('canvas');
+    plate.width = Math.max(2, Math.round(screenW * dpr));
+    plate.height = Math.max(2, Math.round(screenH * dpr));
+    paint(plate, card, null);
+    const texture = new THREE.CanvasTexture(plate);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    texture.needsUpdate = true;
+    textures.push(texture);
+    const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
+    materials.push(material);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(cardW, cardH), material);
     const x = -span / 2 + (span / 7) * (card.dayIndex + 0.5);
-    const restY = 0.52 + card.stack * 0.14;
-    group.position.set(x, restY + 1.35, -card.stack * 0.16);
-    group.rotation.y = 0.7;
-    scene.add(group);
-    return { group, restY, y: restY + 1.35, vy: 0, rot: 0.7, vr: 0, index, hover: false };
+    const restY = card.stack * 0.12;
+    mesh.position.set(x, restY + 1.15, -card.stack * 0.04);
+    mesh.rotation.z = 0.08;
+    scene.add(mesh);
+
+    if (card.thumb) {
+      const img = new Image();
+      images.push(img);
+      img.onload = () => {
+        if (!running) {
+          return;
+        }
+        paint(plate, card, img);
+        texture.needsUpdate = true;
+      };
+      img.src = new URL(card.thumb, document.baseURI).href;
+    }
+
+    return { mesh, restY, y: restY + 1.15, vy: 0, rot: 0.08, vr: 0, index, hover: false };
   });
 
   const raycaster = new THREE.Raycaster();
@@ -110,11 +177,9 @@ export async function mountWeekStage(
   canvas.addEventListener('pointermove', onMove);
   canvas.addEventListener('pointerleave', onLeave);
 
-  let running = true;
   let visible = true;
   let raf = 0;
   let last = performance.now();
-  let elapsed = 0;
 
   const resize = () => {
     const width = canvas.clientWidth;
@@ -124,9 +189,8 @@ export async function mountWeekStage(
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height, false);
-    const aspect = width / height;
     const viewW = 7.35;
-    const viewH = viewW / aspect;
+    const viewH = viewW * (height / width);
     camera.left = -viewW / 2;
     camera.right = viewW / 2;
     camera.top = viewH / 2;
@@ -157,8 +221,8 @@ export async function mountWeekStage(
   document.addEventListener('visibilitychange', onVisibility);
 
   const step = (value: number, velocity: number, target: number, dt: number): [number, number] => {
-    velocity += (target - value) * 72 * dt;
-    velocity *= Math.exp(-11.5 * dt);
+    velocity += (target - value) * 70 * dt;
+    velocity *= Math.exp(-12 * dt);
     return [value + velocity * dt, velocity];
   };
 
@@ -169,19 +233,16 @@ export async function mountWeekStage(
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
-    elapsed += dt;
-
     raycaster.setFromCamera(pointer, camera);
-    const hits = new Set(raycaster.intersectObjects(bodies.map((body) => body.group), true).map((hit) => hit.object.parent));
+    const hits = new Set(raycaster.intersectObjects(bodies.map((body) => body.mesh)).map((hit) => hit.object));
     for (const body of bodies) {
-      body.hover = hits.has(body.group);
-      const bob = Math.sin(elapsed * 1.15 + body.index * 0.7) * 0.02;
-      const targetY = body.restY + bob + (body.hover ? 0.16 : 0);
-      const targetRot = body.hover ? -0.04 : -0.28;
+      body.hover = hits.has(body.mesh);
+      const targetY = body.restY + (body.hover ? 0.14 : 0);
+      const targetRot = body.hover ? 0 : 0;
       [body.y, body.vy] = step(body.y, body.vy, targetY, dt);
       [body.rot, body.vr] = step(body.rot, body.vr, targetRot, dt);
-      body.group.position.y = body.y;
-      body.group.rotation.y = body.rot;
+      body.mesh.position.y = body.y;
+      body.mesh.rotation.z = body.rot;
     }
     renderer.render(scene, camera);
   };
@@ -198,20 +259,70 @@ export async function mountWeekStage(
     dispose: () => {
       running = false;
       cancelAnimationFrame(raf);
+      for (const img of images) {
+        img.onload = null;
+      }
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerleave', onLeave);
       document.removeEventListener('visibilitychange', onVisibility);
       intersection.disconnect();
       resizeObserver.disconnect();
-      bodyGeo.dispose();
-      edgeGeo.dispose();
-      bodyMat.dispose();
-      floor.geometry.dispose();
-      (floor.material as { dispose: () => void }).dispose();
-      baseline.geometry.dispose();
-      (baseline.material as { dispose: () => void }).dispose();
-      edgeMats.forEach((material) => material.dispose());
+      bodies.forEach((body) => body.mesh.geometry.dispose());
+      materials.forEach((material) => material.dispose());
+      textures.forEach((texture) => texture.dispose());
       renderer.dispose();
     }
   };
+}
+
+function waitForBox(canvas: HTMLCanvasElement): Promise<void> {
+  if (canvas.clientWidth > 2 && canvas.clientHeight > 2) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let frames = 0;
+    const tick = () => {
+      frames += 1;
+      if ((canvas.clientWidth > 2 && canvas.clientHeight > 2) || frames > 40) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (ctx.measureText(next).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+      if (lines.length === maxLines) {
+        break;
+      }
+    } else {
+      current = next;
+    }
+  }
+  if (lines.length < maxLines && current) {
+    lines.push(current);
+  }
+  if (lines.length === maxLines) {
+    const last = lines[maxLines - 1];
+    const used = lines.slice(0, -1).join(' ').length;
+    const rest = text.slice(used).trim();
+    if (rest.length > last.length) {
+      let trimmed = last;
+      while (trimmed.length > 1 && ctx.measureText(`${trimmed}…`).width > maxWidth) {
+        trimmed = trimmed.slice(0, -1);
+      }
+      lines[maxLines - 1] = `${trimmed}…`;
+    }
+  }
+  return lines;
 }

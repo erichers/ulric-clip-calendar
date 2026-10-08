@@ -75,7 +75,7 @@ Pages crossfade on navigation. The first view, and each section inside it, fades
 
 Counts run up when they enter the viewport. The status ring and the brand bars grow from zero. A line of posts draws across the range, and the area fills after the line. "How a clip moves" is an SVG on the calendar: draft, needs review, approved, and hold.
 
-Week view lazy-loads three.js r170 for a spring-settled card timeline. The pixel ratio is capped at 2. Rendering pauses when the stage is offscreen or the tab is hidden. If WebGL is missing, or the browser asks for reduced motion, the same week is a static row and the 3D scene does not autoplay.
+Week view lazy-loads three.js r170 for a spring-settled card row. Each card is a canvas texture, drawn after the fonts are ready and updated when the poster loads, at a pixel ratio capped at 2. The face shows the thumbnail, time, title, and status. Rendering pauses offscreen. A narrow window, or reduced motion, uses the same cards as a flat row and does not start the 3D scene.
 
 A 24 second Remotion reel sits in `video/` for a portfolio cut. It is not part of CI.
 

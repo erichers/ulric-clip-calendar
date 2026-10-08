@@ -43,17 +43,26 @@
     </div>
   } @else {
     @if (view() === 'week') {
-      <section class="week-stage" [class.live]="stageOn()" aria-hidden="true">
+      <section class="week-stage" [class.live]="stageOn()">
         <div class="week-fallback">
-          @for (day of days(); track day.date) {
-            <div>
+          @for (day of days(); track day.date; let dayIndex = $index) {
+            <div class="week-col">
               @for (clip of day.clips.slice(0, 2); track clip.id) {
-                <p [style.--brand]="clip.brandColor">{{ time(clip.postTime) }} {{ clip.title }}</p>
+                <a class="week-face" [routerLink]="['/clips', clip.id]" [style.--brand]="clip.brandColor" [style.--stagger]="dayIndex">
+                  <span class="week-poster">
+                    @if (clip.thumbnailUrl) {
+                      <img [src]="clip.thumbnailUrl" alt="" />
+                    }
+                  </span>
+                  <time [attr.datetime]="clip.postDate + 'T' + clip.postTime">{{ time(clip.postTime) }}</time>
+                  <strong>{{ clip.title }}</strong>
+                  <span [class]="pill(clip.status)">{{ label(clip.status) }}</span>
+                </a>
               }
             </div>
           }
         </div>
-        <canvas #weekCanvas class="week-canvas"></canvas>
+        <canvas #weekCanvas class="week-canvas" aria-hidden="true"></canvas>
       </section>
     }
     <div class="weekdays" aria-hidden="true">
