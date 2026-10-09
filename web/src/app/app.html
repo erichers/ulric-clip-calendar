@@ -1,0 +1,39 @@
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <div class="top-inner">
+    <a class="mark" routerLink="/">
+      <span class="mark-name">Clip Calendar</span>
+      <span class="mark-studio">Ulric</span>
+    </a>
+    @if (!shareMode()) {
+      <nav aria-label="Primary">
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Calendar</a>
+        <a routerLink="/review" routerLinkActive="active">Review</a>
+        <a routerLink="/brands" routerLinkActive="active">Brands</a>
+        <a routerLink="/clips/new" routerLinkActive="active">New clip</a>
+      </nav>
+    } @else {
+      <p class="readonly">Read only</p>
+    }
+    <button
+      type="button"
+      class="theme"
+      (click)="theme.toggle()"
+      [attr.aria-label]="theme.effective() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+    >
+      {{ theme.effective() === 'dark' ? 'Light' : 'Dark' }}
+    </button>
+  </div>
+</header>
+<main id="content">
+  <router-outlet />
+</main>
+<footer class="foot">
+  <div class="foot-inner">
+    <p class="mark">
+      <span class="mark-name">Clip Calendar</span>
+      <span class="mark-studio">Ulric</span>
+    </p>
+    <p>A schedule for clips. Nothing here is published to a platform.</p>
+  </div>
+</footer>

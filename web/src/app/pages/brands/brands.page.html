@@ -1,0 +1,92 @@
+<div class="shell">
+  <h1>Brands</h1>
+  <p class="lede">Color, handles, cadence, and a studio pin for each account.</p>
+  @if (error()) { <p class="banner" role="alert">{{ error() }}</p> }
+  @if (notice()) { <p class="banner" role="status">{{ notice() }}</p> }
+  @if (loading()) {
+    <div class="bone"></div>
+  } @else {
+    <div class="brand-layout">
+      <div class="stack">
+        <div #mapHost class="map" role="region" aria-label="Brand locations"></div>
+        @for (brand of brands(); track brand.id) {
+          <article class="panel brand-card">
+            <header>
+              <h2><i class="swatch pin-swatch" [style.background]="tone(brand.color)" title="Brand color"></i> {{ brand.name }}</h2>
+              <span><span class="count" [appCount]="brand.clipCount"></span> clips</span>
+            </header>
+            <p>{{ brand.description }}</p>
+            <p>{{ brand.cadenceLabel }} at {{ brand.defaultPostTime }}</p>
+            <p class="handles">
+              @if (brand.instagram) { <span>IG {{ brand.instagram }}</span> }
+              @if (brand.tikTok) { <span>TikTok {{ brand.tikTok }}</span> }
+              @if (brand.youTube) { <span>YT {{ brand.youTube }}</span> }
+              @if (brand.facebook) { <span>FB {{ brand.facebook }}</span> }
+            </p>
+            <p>{{ brand.defaultHashtags }}</p>
+            <p>{{ brand.locationLabel }}</p>
+            <div class="actions">
+              <button type="button" class="ghost" (click)="edit(brand)">Edit</button>
+              <button type="button" class="primary" (click)="shareThis(brand.id)">Share this brand</button>
+            </div>
+          </article>
+        }
+      </div>
+      <div class="stack">
+        <form class="panel form-grid" (submit)="$event.preventDefault(); save()">
+          <h2>{{ editingId() ? 'Edit brand' : 'Add a brand' }}</h2>
+          <label><span>Name</span><input [value]="draft().name" (input)="onText('name', $event)" required /></label>
+          <label><span>Color</span><input type="color" [value]="draft().color" (input)="onText('color', $event)" /></label>
+          <label><span>Description</span><textarea [value]="draft().description" (input)="onText('description', $event)"></textarea></label>
+          <label><span>Instagram</span><input [value]="draft().instagram" (input)="onText('instagram', $event)" /></label>
+          <label><span>TikTok</span><input [value]="draft().tikTok" (input)="onText('tikTok', $event)" /></label>
+          <label><span>YouTube</span><input [value]="draft().youTube" (input)="onText('youTube', $event)" /></label>
+          <label><span>Facebook</span><input [value]="draft().facebook" (input)="onText('facebook', $event)" /></label>
+          <label><span>Default hashtags</span><input [value]="draft().defaultHashtags" (input)="onText('defaultHashtags', $event)" /></label>
+          <label><span>Cadence label</span><input [value]="draft().cadenceLabel" (input)="onText('cadenceLabel', $event)" placeholder="Tue, Thu, Sat" /></label>
+          <label><span>Cadence days</span><input [value]="draft().cadenceDays" (input)="onText('cadenceDays', $event)" placeholder="2,4,6" /></label>
+          <label><span>Default time</span><input type="time" [value]="draft().defaultPostTime" (input)="onText('defaultPostTime', $event)" /></label>
+          <label><span>Latitude</span><input type="number" step="0.0001" [value]="draft().latitude" (input)="onCoord('latitude', $event)" /></label>
+          <label><span>Longitude</span><input type="number" step="0.0001" [value]="draft().longitude" (input)="onCoord('longitude', $event)" /></label>
+          <label><span>Location label</span><input [value]="draft().locationLabel" (input)="onText('locationLabel', $event)" /></label>
+          <div class="actions">
+            <button class="primary" type="submit">Save brand</button>
+            @if (editingId()) { <button type="button" class="ghost" (click)="reset()">Cancel</button> }
+          </div>
+        </form>
+        <form class="panel form-grid" (submit)="$event.preventDefault(); createShare()">
+          <h2>Share a range</h2>
+          <label>
+            <span>Brand</span>
+            <select [value]="shareBrand()" (change)="onShare('brand', $event)">
+              <option value="" [selected]="!shareBrand()">All brands</option>
+              @for (brand of brands(); track brand.id) {
+                <option [value]="brand.id" [selected]="brand.id === shareBrand()">{{ brand.name }}</option>
+              }
+            </select>
+          </label>
+          <label><span>From</span><input type="date" [value]="shareStart()" (input)="onShare('start', $event)" /></label>
+          <label><span>To</span><input type="date" [value]="shareEnd()" (input)="onShare('end', $event)" /></label>
+          <label><span>Label</span><input [value]="shareLabel()" (input)="onShare('label', $event)" /></label>
+          <button class="primary" type="submit">Create share link</button>
+        </form>
+        <section class="panel stack">
+          <h2>Links</h2>
+          @for (link of shares(); track link.id) {
+            <div class="stack">
+              <strong>{{ link.label }}</strong>
+              <p class="meta">
+                {{ link.brandName || 'All brands' }}
+                @if (link.rangeStart || link.rangeEnd) { <span>{{ link.rangeStart }} to {{ link.rangeEnd }}</span> }
+              </p>
+              <div class="actions">
+                <a class="button ghost" [href]="link.url">Open</a>
+                <button type="button" class="ghost" (click)="copy(link.url)">{{ copied() === link.url ? 'Copied' : 'Copy' }}</button>
+              </div>
+            </div>
+          }
+        </section>
+      </div>
+    </div>
+  }
+</div>

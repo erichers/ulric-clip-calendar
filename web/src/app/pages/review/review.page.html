@@ -1,0 +1,77 @@
+<div class="shell">
+  <h1>Review</h1>
+  <p class="lede">J and K move through the queue. A approves. H holds.</p>
+
+  <div class="toolbar">
+    <label class="check">
+      <input type="checkbox" [checked]="includeApproved()" (change)="toggleApproved($event)" />
+      Show approved
+    </label>
+    <label class="as">
+      <span>Reviewing as</span>
+      <input [value]="actor.name()" (input)="onActor($event)" aria-label="Your name" />
+    </label>
+    @if (queue().length) {
+      <p>{{ index() + 1 }} of {{ queue().length }}</p>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="banner" role="alert">{{ error() }}</p>
+  }
+  @if (loading()) {
+    <div class="bone"></div>
+  } @else if (!current()) {
+    <p class="empty">Nothing is waiting. Approved clips stay off this list unless you show them.</p>
+  } @else if (current(); as clip) {
+    <div class="review-grid">
+      <div class="frame">
+        @if (clip.previewUrl) {
+          <video [src]="clip.previewUrl" [poster]="clip.thumbnailUrl || ''" controls playsinline></video>
+        } @else if (clip.thumbnailUrl) {
+          <img [src]="clip.thumbnailUrl" alt="" />
+        } @else {
+          <div class="poster">{{ clip.title | nbspDate }}</div>
+        }
+      </div>
+      <article class="panel stack">
+        <p class="kicker">{{ clip.brandName }}</p>
+        <h2>{{ clip.title | nbspDate }}</h2>
+        <p class="meta">
+          <time [attr.datetime]="clip.postDate + 'T' + clip.postTime">{{ clip.postDate }} {{ time(clip.postTime) }}</time>
+          @if (clip.series) { <span>{{ clip.series }}@if (clip.seriesPart) { · {{ clip.seriesPart }} }</span> }
+          <span [class]="pill(clip.status)">{{ label(clip.status) }}</span>
+          @if (clip.storiesOk) { <span>Stories ok</span> }
+        </p>
+        <p>{{ clip.caption || 'No caption yet.' }}</p>
+        <p>{{ clip.hashtags }}</p>
+        <p class="meta">
+          @for (item of clip.platforms; track item) {
+            <span class="pill">{{ platform(item) }}</span>
+          }
+        </p>
+        <div class="actions">
+          <button type="button" class="primary" [disabled]="clip.status === 'approved' || !allowed(clip.status, 'approved')" (click)="setStatus('approved')">Approve · A</button>
+          <button type="button" class="ghost" [disabled]="clip.status === 'hold' || !allowed(clip.status, 'hold')" (click)="setStatus('hold')">Hold · H</button>
+          <button type="button" class="ghost" [disabled]="clip.status === 'needsReview' || !allowed(clip.status, 'needsReview')" (click)="setStatus('needsReview')">Needs review · R</button>
+          <button type="button" class="ghost" [disabled]="clip.status === 'draft' || !allowed(clip.status, 'draft')" (click)="setStatus('draft')">Draft · D</button>
+          <button type="button" class="ghost" (click)="go(-1)">Previous · K</button>
+          <button type="button" class="ghost" (click)="go(1)">Next · J</button>
+        </div>
+        <div class="stack">
+          @for (comment of clip.comments; track comment.id) {
+            <div class="comment">
+              <strong>{{ comment.author }}</strong>
+              <p>{{ comment.body }}</p>
+            </div>
+          }
+          <label>
+            <span>Note</span>
+            <textarea [value]="commentBody()" (input)="onComment($event)"></textarea>
+          </label>
+          <button type="button" class="ghost" (click)="addComment()">Add note</button>
+        </div>
+      </article>
+    </div>
+  }
+</div>
